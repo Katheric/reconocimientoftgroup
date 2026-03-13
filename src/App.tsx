@@ -1028,16 +1028,22 @@ const response = await fetch('/api/recognitions', {
 };
 
 const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConfig: (newConfig: Partial<AppConfig>) => void }) => {
-  const [activeTab, setActiveTab] = useState<'company' | 'campaign' | 'culture' | 'collaborators' | 'voting' | 'areas'>('company');
-  const [companyForm, setCompanyForm] = useState(config.company);
-  const [newValue, setNewValue] = useState({ name: '', emoji: '', image: '' });
-  const [editingValue, setEditingValue] = useState<Value | null>(null);
-  const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAdmin: false });
-  const [editingCollab, setEditingCollab] = useState<Collaborator | null>(null);
-  const [newAreaName, setNewAreaName] = useState('');
-  const [newPeriod, setNewPeriod] = useState({ name: '', startDate: '', endDate: '' });
-  const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const [activeTab, setActiveTab] = useState<'company' | 'campaign' | 'culture' | 'collaborators' | 'voting' | 'areas'>('company');
+const [companyForm, setCompanyForm] = useState(config.company);
+const [newValue, setNewValue] = useState({ name: '', emoji: '', image: '' });
+const [editingValue, setEditingValue] = useState<Value | null>(null);
+const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAdmin: false });
+const [editingCollab, setEditingCollab] = useState<Collaborator | null>(null);
+const [newAreaName, setNewAreaName] = useState('');
+const [newPeriod, setNewPeriod] = useState({ name: '', startDate: '', endDate: '' });
+const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
+const [savingCompany, setSavingCompany] = useState(false);
+const [savingCollab, setSavingCollab] = useState(false);
+const [importingCollabs, setImportingCollabs] = useState(false);
+const [savingArea, setSavingArea] = useState(false);
+const [savingPeriod, setSavingPeriod] = useState(false);
+const [savingValue, setSavingValue] = useState(false);
+const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeTab === 'voting') {
@@ -1113,17 +1119,24 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
         isAdmin: item.Admin === 'Si' || item.admin === true || item.Admin === 1
       })).filter(m => m.name && m.email);
 
-      if (members.length > 0) {
-await fetch('/api/collaborators', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ action: 'bulk', members })
-});
-        const res = await fetch('/api/config');
-        const configData = await res.json();
-        onUpdateConfig(configData);
-        alert(`Se han importado ${members.length} miembros exitosamente.`);
-      }
+if (members.length > 0) {
+  try {
+    setImportingCollabs(true);
+
+    await fetch('/api/collaborators', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bulk', members })
+    });
+
+    const res = await fetch('/api/config');
+    const configData = await res.json();
+    onUpdateConfig(configData);
+    alert(`Se han importado ${members.length} miembros exitosamente.`);
+  } finally {
+    setImportingCollabs(false);
+  }
+}     
     };
     reader.readAsArrayBuffer(file);
   };
@@ -1221,37 +1234,55 @@ await fetch('/api/values', {
     onUpdateConfig(data);
   };
 
-  const handleUpdateCollab = async () => {
-    if (!editingCollab) return;
-await fetch('/api/collaborators', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    id: editingCollab.id,
-    name: editingCollab.name,
-    email: editingCollab.email,
-    area: editingCollab.area,
-    isAdmin: editingCollab.isAdmin === 1
-  })
-});
+const handleUpdateCollab = async () => {
+  if (!editingCollab) return;
+
+  try {
+    setSavingCollab(true);
+
+    await fetch('/api/collaborators', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editingCollab.id,
+        name: editingCollab.name,
+        email: editingCollab.email,
+        area: editingCollab.area,
+        isAdmin: editingCollab.isAdmin === 1
+      })
+    });
+
     setEditingCollab(null);
+
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } finally {
+    setSavingCollab(false);
+  }
+};
 
-  const handleAddCollab = async () => {
-    if (!newCollab.name || !newCollab.email) return;
+const handleAddCollab = async () => {
+  if (!newCollab.name || !newCollab.email) return;
+
+  try {
+    setSavingCollab(true);
+
     await fetch('/api/collaborators', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newCollab)
     });
+
     setNewCollab({ name: '', email: '', area: '', isAdmin: false });
+
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } finally {
+    setSavingCollab(false);
+  }
+};
 
   const handleDeleteCollab = async (id: number) => {
     if (!confirm('¿Estás seguro de que deseas eliminar a este colaborador?')) return;
@@ -1388,7 +1419,9 @@ await fetch('/api/collaborators', {
                       </div>
                     </div>
                     <div className="pt-4">
-                      <Button onClick={handleSaveCompany} className="px-8">Guardar Cambios</Button>
+                      <Button onClick={handleSaveCompany} className="px-8" disabled={savingCompany}>
+  {savingCompany ? 'Guardando...' : 'Guardar Cambios'}
+</Button>
                     </div>
                   </div>
                 </Card>
@@ -1461,9 +1494,9 @@ await fetch('/api/collaborators', {
                         />
                         <label htmlFor="isAdmin" className="text-sm font-bold text-slate-700 cursor-pointer">Permisos de Administrador</label>
                       </div>
-                      <Button onClick={handleAddCollab} className="w-full py-4">
-                        <UserPlus size={18} /> Crear Manualmente
-                      </Button>
+<Button onClick={handleAddCollab} className="w-full py-4" disabled={savingCollab}>
+  <UserPlus size={18} /> {savingCollab ? 'Guardando...' : 'Crear Manualmente'}
+</Button>
                       
                       <div className="pt-6 border-t border-slate-100">
                         <input 
@@ -1473,9 +1506,9 @@ await fetch('/api/collaborators', {
                           accept=".xlsx, .xls" 
                           className="hidden" 
                         />
-                        <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full">
-                          <FileSpreadsheet size={18} /> Importar desde Excel
-                        </Button>
+<Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={importingCollabs}>
+  <FileSpreadsheet size={18} /> {importingCollabs ? 'Importando...' : 'Importar desde Excel'}
+</Button>
                       </div>
                     </div>
                   </Card>
@@ -1976,7 +2009,9 @@ await fetch('/api/collaborators', {
                   
                   <div className="flex gap-4 pt-4">
                     <Button onClick={() => setEditingCollab(null)} variant="outline" className="flex-1 py-4">Cancelar</Button>
-                    <Button onClick={handleUpdateCollab} className="flex-1 py-4">Guardar Cambios</Button>
+                    <Button onClick={handleUpdateCollab} className="flex-1 py-4" disabled={savingCollab}>
+  {savingCollab ? 'Guardando...' : 'Guardar Cambios'}
+</Button>
                   </div>
                 </div>
               </div>
@@ -1991,10 +2026,11 @@ await fetch('/api/collaborators', {
 // --- Main App ---
 
 export default function App() {
-  const [user, setUser] = useState<Collaborator | null>(null);
-  const [view, setView] = useState<'recognize' | 'dashboard' | 'admin' | 'evaluations'>('recognize');
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+const [user, setUser] = useState<Collaborator | null>(null);
+const [view, setView] = useState<'recognize' | 'dashboard' | 'admin' | 'evaluations'>('recognize');
+const [config, setConfig] = useState<AppConfig | null>(null);
+const [loading, setLoading] = useState(true);
+const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     fetch('/api/config')
@@ -2055,24 +2091,29 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const reader = new FileReader();
   reader.onload = async (evt) => {
-    const avatar = evt.target?.result as string;
+    try {
+      setUploadingAvatar(true);
 
-    await fetch('/api/collaborators', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: user.id, avatar })
-    });
+      const avatar = evt.target?.result as string;
 
-    setUser({ ...user, avatar });
+      await fetch('/api/collaborators', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, avatar })
+      });
 
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    setConfig(data);
+      setUser({ ...user, avatar });
+
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      setConfig(data);
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   reader.readAsDataURL(file);
 };
-
   
   return (
     <div className="flex min-h-screen bg-[#F8F9FB]">
@@ -2133,8 +2174,10 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
                   <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                 </label>
               </div>
-              <p className="font-bold text-sm text-slate-900 text-center">{user.name}</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Mi Perfil</p>
+<p className="font-bold text-sm text-slate-900 text-center">{user.name}</p>
+<p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+  {uploadingAvatar ? 'Subiendo foto...' : 'Mi Perfil'}
+</p>
             </div>
           </div>
 
