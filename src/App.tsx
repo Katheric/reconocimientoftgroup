@@ -2041,27 +2041,29 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
+const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !user) return;
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const avatar = evt.target?.result as string;
-await fetch('/api/collaborators', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id: user.id, avatar })
-});   
-      setUser({ ...user, avatar });
-      // Refresh config to update avatar everywhere
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      setConfig(data);
-    };
-    reader.readAsDataURL(file);
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    const avatar = evt.target?.result as string;
+
+    await fetch('/api/collaborators', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: user.id, avatar })
+    });
+
+    setUser({ ...user, avatar });
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    setConfig(data);
   };
+
+  reader.readAsDataURL(file);
+};
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FB]">
