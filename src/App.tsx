@@ -1129,14 +1129,21 @@ await fetch('/api/collaborators', {
   };
 
 const handleSaveCompany = async () => {
-  await fetch('/api/company', {
+  console.log('Guardando companyForm:', companyForm);
+
+  const saveRes = await fetch('/api/company', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(companyForm)
   });
 
+  const saveData = await saveRes.json();
+  console.log('Respuesta al guardar empresa:', saveData);
+
   const res = await fetch('/api/config');
   const data = await res.json();
+  console.log('Config recargada:', data);
+
   onUpdateConfig(data);
 };
 
