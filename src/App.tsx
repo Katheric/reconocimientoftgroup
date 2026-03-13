@@ -2041,6 +2041,7 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
+
 const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file || !user) return;
@@ -2065,6 +2066,7 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   reader.readAsDataURL(file);
 };
 
+  
   return (
     <div className="flex min-h-screen bg-[#F8F9FB]">
       {/* Sidebar */}
