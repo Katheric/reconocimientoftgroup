@@ -931,12 +931,12 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
     fetchRecognitions();
   }, []);
 
-const handleSetScore = async (id: number, approved: boolean) => {
+const handleSetScore = async (id: number, score: 1 | -1) => {
   try {
     const response = await fetch('/api/recognitions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, approved })
+      body: JSON.stringify({ id, score })
     });
 
     if (!response.ok) throw new Error('Failed to set evaluation');
