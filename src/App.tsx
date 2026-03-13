@@ -931,23 +931,24 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
     fetchRecognitions();
   }, []);
 
-  const handleSetScore = async (id: number, score: number) => {
-    try {
-const response = await fetch('/api/recognitions', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id, score })
-});   
-      if (!response.ok) throw new Error('Failed to set score');
-      
-      const res = await fetch('/api/recognitions');
-      const data = await res.json();
-      setAllRecognitions(data);
-    } catch (error) {
-      console.error('Error setting score:', error);
-      alert('Error al guardar la calificación');
-    }
-  };
+const handleSetScore = async (id: number, approved: boolean) => {
+  try {
+    const response = await fetch('/api/recognitions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, approved })
+    });
+
+    if (!response.ok) throw new Error('Failed to set evaluation');
+
+    const res = await fetch('/api/recognitions');
+    const data = await res.json();
+    setAllRecognitions(data);
+  } catch (error) {
+    console.error('Error setting evaluation:', error);
+    alert('Error al guardar la evaluación');
+  }
+};
 
   if (loading) return <div className="p-12 text-center text-slate-400">Cargando evaluaciones...</div>;
 
@@ -986,23 +987,39 @@ const response = await fetch('/api/recognitions', {
                   </div>
                 </div>
                 <div className="pt-4 border-t border-slate-50">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">Calificar Impacto (1-5)</p>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <button
-                        key={star}
-                        onClick={() => handleSetScore(r.id, star)}
-                        className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
-                          r.score && r.score >= star 
-                            ? "bg-amber-100 text-amber-600 shadow-sm" 
-                            : "bg-slate-50 text-slate-300 hover:bg-slate-100"
-                        )}
-                      >
-                        <Sparkles size={18} className={cn(r.score && r.score >= star ? "fill-amber-600" : "")} />
-                      </button>
-                    ))}
-                  </div>
+<p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
+Evaluar reconocimiento
+</p>
+
+<div className="flex gap-3">
+
+<button
+onClick={() => handleSetScore(r.id, true)}
+className={cn(
+"flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+r.score === 1
+? "bg-emerald-100 text-emerald-600"
+: "bg-slate-50 text-slate-400 hover:bg-emerald-50"
+)}
+>
+<CheckCircle2 size={16} />
+Aprobar
+</button>
+
+<button
+onClick={() => handleSetScore(r.id, false)}
+className={cn(
+"flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+r.score === -1
+? "bg-red-100 text-red-600"
+: "bg-slate-50 text-slate-400 hover:bg-red-50"
+)}
+>
+<X size={16} />
+Descartar
+</button>
+
+</div>
                 </div>
               </div>
               
