@@ -159,13 +159,11 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
             >
               Iniciar Sesión
             </Button>
-            <div className="pt-8 border-t border-slate-50">
-              <p className="text-xs text-slate-400 leading-relaxed">
-                <span className="font-bold text-slate-900">Demo Access:</span><br />
-                Admin: <span className="font-mono">kath@metodosft.com</span><br />
-                Usuario: <span className="font-mono">laura@metodosft.com</span>
-              </p>
-            </div>
+<div className="pt-8 border-t border-slate-50">
+  <p className="text-xs text-slate-400 leading-relaxed">
+    Una herramienta creada por <span className="font-bold text-[#fa5800]">FT Group</span>
+  </p>
+</div>
           </div>
         </div>
       </div>
