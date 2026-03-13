@@ -1128,14 +1128,17 @@ await fetch('/api/collaborators', {
     reader.readAsArrayBuffer(file);
   };
 
-  const handleSaveCompany = async () => {
-    await fetch('/api/company', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(companyForm)
-    });
-    onUpdateConfig({ company: companyForm });
-  };
+const handleSaveCompany = async () => {
+  await fetch('/api/company', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(companyForm)
+  });
+
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+};
 
   const handleAddValue = async () => {
     if (!newValue.name) return;
