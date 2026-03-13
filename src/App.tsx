@@ -500,10 +500,10 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/recognitions').then(res => res.json()),
-      fetch('/api/stats/top-nominators').then(res => res.json()),
-      fetch('/api/stats/ambassadors').then(res => res.json())
-    ]).then(([recData, topData, ambData]) => {
+  fetch('/api/recognitions').then(res => res.json()),
+  fetch('/api/stats?type=top-nominators').then(res => res.json()),
+  fetch('/api/stats?type=ambassadors').then(res => res.json())
+]).then(([recData, topData, ambData]) => {
       setRecognitions(recData);
       setTopNominators(topData);
       setAmbassadors(ambData);
@@ -933,12 +933,11 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
 
   const handleSetScore = async (id: number, score: number) => {
     try {
-      const response = await fetch(`/api/recognitions/${id}/score`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score })
-      });
-      
+const response = await fetch('/api/recognitions', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id, score })
+});   
       if (!response.ok) throw new Error('Failed to set score');
       
       const res = await fetch('/api/recognitions');
@@ -1042,9 +1041,9 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   useEffect(() => {
     if (activeTab === 'voting') {
-      fetch('/api/stats/top-nominators')
-        .then(res => res.json())
-        .then(data => setTopNominators(data));
+      fetch('/api/stats?type=top-nominators')
+  .then(res => res.json())
+  .then(data => setTopNominators(data));
     }
   }, [activeTab]);
 
@@ -1062,14 +1061,22 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
   };
 
   const handleActivatePeriod = async (id: number) => {
-    await fetch(`/api/periods/${id}/activate`, { method: 'PATCH' });
+    await fetch('/api/periods', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: 'activate', id })
+});
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
   };
 
   const handleDeletePeriod = async (id: number) => {
-    await fetch(`/api/periods/${id}`, { method: 'DELETE' });
+    await fetch('/api/periods', {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id })
+});
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
@@ -1107,11 +1114,11 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
       })).filter(m => m.name && m.email);
 
       if (members.length > 0) {
-        await fetch('/api/collaborators/bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ members })
-        });
+await fetch('/api/collaborators', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: 'bulk', members })
+});
         const res = await fetch('/api/config');
         const configData = await res.json();
         onUpdateConfig(configData);
@@ -1145,11 +1152,11 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   const handleUpdateValue = async () => {
     if (!editingValue || !editingValue.name) return;
-    await fetch(`/api/values/${editingValue.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingValue)
-    });
+await fetch('/api/values', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id: editingValue.id, ...editingValue })
+});
     setEditingValue(null);
     const res = await fetch('/api/config');
     const data = await res.json();
@@ -1158,7 +1165,11 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   const handleDeleteValue = async (id: number) => {
     try {
-      const response = await fetch(`/api/values/${id}`, { method: 'DELETE' });
+      const response = await fetch('/api/values', {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id })
+});
       if (!response.ok) throw new Error('Failed to delete value');
       
       const res = await fetch('/api/config');
@@ -1190,7 +1201,11 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   const handleDeleteArea = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar esta área?')) return;
-    await fetch(`/api/areas/${id}`, { method: 'DELETE' });
+    await fetch('/api/areas', {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id })
+});
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
@@ -1198,16 +1213,17 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   const handleUpdateCollab = async () => {
     if (!editingCollab) return;
-    await fetch(`/api/collaborators/${editingCollab.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: editingCollab.name,
-        email: editingCollab.email,
-        area: editingCollab.area,
-        isAdmin: editingCollab.isAdmin === 1
-      })
-    });
+await fetch('/api/collaborators', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    id: editingCollab.id,
+    name: editingCollab.name,
+    email: editingCollab.email,
+    area: editingCollab.area,
+    isAdmin: editingCollab.isAdmin === 1
+  })
+});
     setEditingCollab(null);
     const res = await fetch('/api/config');
     const data = await res.json();
@@ -1229,18 +1245,22 @@ const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConf
 
   const handleDeleteCollab = async (id: number) => {
     if (!confirm('¿Estás seguro de que deseas eliminar a este colaborador?')) return;
-    await fetch(`/api/collaborators/${id}`, { method: 'DELETE' });
+    await fetch('/api/collaborators', {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id })
+});
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
   };
 
   const toggleAdmin = async (id: number, current: number) => {
-    await fetch(`/api/collaborators/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isAdmin: current === 1 ? 0 : 1 })
-    });
+await fetch('/api/collaborators', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id, isAdmin: current === 1 ? 0 : 1 })
+}); 
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
@@ -2026,11 +2046,11 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const avatar = evt.target?.result as string;
-      await fetch(`/api/collaborators/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatar })
-      });
+await fetch('/api/collaborators', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id: user.id, avatar })
+});   
       setUser({ ...user, avatar });
       // Refresh config to update avatar everywhere
       const res = await fetch('/api/config');
