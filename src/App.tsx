@@ -994,31 +994,30 @@ Evaluar reconocimiento
 <div className="flex gap-3">
 
 <button
-onClick={() => handleSetScore(r.id, true)}
-className={cn(
-"flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
-r.score === 1
-? "bg-emerald-100 text-emerald-600"
-: "bg-slate-50 text-slate-400 hover:bg-emerald-50"
-)}
+  onClick={() => handleSetScore(r.id, 1)}
+  className={cn(
+    "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+    r.score === 1
+      ? "bg-emerald-100 text-emerald-600"
+      : "bg-slate-50 text-slate-400 hover:bg-emerald-50"
+  )}
 >
-<CheckCircle2 size={16} />
-Aprobar
+  <CheckCircle2 size={16} />
+  Aprobar
 </button>
 
 <button
-onClick={() => handleSetScore(r.id, false)}
-className={cn(
-"flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
-r.score === -1
-? "bg-red-100 text-red-600"
-: "bg-slate-50 text-slate-400 hover:bg-red-50"
-)}
+  onClick={() => handleSetScore(r.id, -1)}
+  className={cn(
+    "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+    r.score === -1
+      ? "bg-red-100 text-red-600"
+      : "bg-slate-50 text-slate-400 hover:bg-red-50"
+  )}
 >
-<X size={16} />
-Descartar
+  <X size={16} />
+  Descartar
 </button>
-
 </div>
                 </div>
               </div>
