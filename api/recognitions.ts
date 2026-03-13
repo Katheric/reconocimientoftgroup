@@ -36,6 +36,28 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(data);
     }
 
+    if (req.method === 'PATCH') {
+      const { id, score } = req.body;
+
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setRecognitionScore',
+          id: Number(id),
+          payload: { score }
+        })
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        return res.status(400).json({ error: data.error || 'No se pudo guardar la calificación' });
+      }
+
+      return res.status(200).json(data);
+    }
+
     return res.status(405).json({ error: 'Método no permitido' });
   } catch (error) {
     console.error('Error en /api/recognitions:', error);
