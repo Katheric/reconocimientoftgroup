@@ -6,6 +6,7 @@ export interface Company {
   secondaryColor: string;
   votingOpen: number;
   showResults: number;
+  slogan?: string;
 }
 
 export interface Period {
