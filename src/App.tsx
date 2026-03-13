@@ -544,7 +544,7 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
       <div className="flex-1 p-12 overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between mb-16">
           <div>
-            <h1 className="text-5xl font-bold text-slate-900 tracking-tight">Hola, {currentUser.name.split(' ')[0]} 👋</h1>
+            <h1 className="text-5xl font-bold text-slate-900 tracking-tight">Hola, {currentUser.name.split(' ')[0]} </h1>
             <p className="text-slate-500 text-xl mt-2">Esto es lo que ha estado pasando en tu equipo hoy.</p>
           </div>
           <div className="flex gap-4">
