@@ -1053,18 +1053,27 @@ const fileInputRef = useRef<HTMLInputElement>(null);
     }
   }, [activeTab]);
 
-  const handleAddPeriod = async () => {
-    if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
+const handleAddPeriod = async () => {
+  if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
+
+  try {
+    setSavingPeriod(true);
+
     await fetch('/api/periods', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPeriod)
     });
+
     setNewPeriod({ name: '', startDate: '', endDate: '' });
+
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } finally {
+    setSavingPeriod(false);
+  }
+};
 
   const handleActivatePeriod = async (id: number) => {
     await fetch('/api/periods', {
@@ -1142,49 +1151,73 @@ if (members.length > 0) {
   };
 
 const handleSaveCompany = async () => {
-  console.log('Guardando companyForm:', companyForm);
+  try {
+    setSavingCompany(true);
 
-  const saveRes = await fetch('/api/company', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(companyForm)
-  });
+    console.log('Guardando companyForm:', companyForm);
 
-  const saveData = await saveRes.json();
-  console.log('Respuesta al guardar empresa:', saveData);
+    const saveRes = await fetch('/api/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(companyForm)
+    });
 
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  console.log('Config recargada:', data);
+    const saveData = await saveRes.json();
+    console.log('Respuesta al guardar empresa:', saveData);
 
-  onUpdateConfig(data);
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    console.log('Config recargada:', data);
+
+    onUpdateConfig(data);
+  } finally {
+    setSavingCompany(false);
+  }
 };
 
-  const handleAddValue = async () => {
-    if (!newValue.name) return;
+const handleAddValue = async () => {
+  if (!newValue.name) return;
+
+  try {
+    setSavingValue(true);
+
     await fetch('/api/values', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newValue)
     });
-    setNewValue({ name: '', emoji: '✨', image: '' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
 
-  const handleUpdateValue = async () => {
-    if (!editingValue || !editingValue.name) return;
-await fetch('/api/values', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id: editingValue.id, ...editingValue })
-});
-    setEditingValue(null);
+    setNewValue({ name: '', emoji: '✨', image: '' });
+
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } finally {
+    setSavingValue(false);
+  }
+};
+
+const handleUpdateValue = async () => {
+  if (!editingValue || !editingValue.name) return;
+
+  try {
+    setSavingValue(true);
+
+    await fetch('/api/values', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingValue.id, ...editingValue })
+    });
+
+    setEditingValue(null);
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } finally {
+    setSavingValue(false);
+  }
+};
 
   const handleDeleteValue = async (id: number) => {
     try {
@@ -1204,13 +1237,18 @@ await fetch('/api/values', {
     }
   };
 
-  const handleAddArea = async () => {
-    if (!newAreaName.trim()) return;
+const handleAddArea = async () => {
+  if (!newAreaName.trim()) return;
+
+  try {
+    setSavingArea(true);
+
     const response = await fetch('/api/areas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newAreaName.trim() })
     });
+
     if (response.ok) {
       setNewAreaName('');
       const res = await fetch('/api/config');
@@ -1220,7 +1258,10 @@ await fetch('/api/values', {
       const err = await response.json();
       alert(err.error);
     }
-  };
+  } finally {
+    setSavingArea(false);
+  }
+};
 
   const handleDeleteArea = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar esta área?')) return;
@@ -1660,9 +1701,9 @@ await fetch('/api/collaborators', {
                           className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                         />
                       </div>
-                      <Button onClick={handleAddArea} className="w-full py-4">
-                        <Plus size={18} /> Crear Área
-                      </Button>
+<Button onClick={handleAddArea} className="w-full py-4" disabled={savingArea}>
+  <Plus size={18} /> {savingArea ? 'Guardando...' : 'Crear Área'}
+</Button>
                     </div>
                   </Card>
                 </div>
@@ -1735,7 +1776,9 @@ await fetch('/api/collaborators', {
                           />
                         </div>
                       </div>
-                      <Button onClick={handleAddPeriod} className="w-full py-4">Crear Periodo</Button>
+<Button onClick={handleAddPeriod} className="w-full py-4" disabled={savingPeriod}>
+  {savingPeriod ? 'Guardando...' : 'Crear Periodo'}
+</Button>
                     </div>
                   </Card>
                 </div>
@@ -1879,12 +1922,15 @@ await fetch('/api/collaborators', {
                         </div>
                         <div className="flex gap-3 pt-4">
                           {editingValue ? (
-                            <>
-                              <Button onClick={handleUpdateValue} className="flex-1">Guardar</Button>
+                            <><Button onClick={handleUpdateValue} className="flex-1" disabled={savingValue}>
+  {savingValue ? 'Guardando...' : 'Guardar'}
+</Button>
                               <Button onClick={() => setEditingValue(null)} variant="outline">Cancelar</Button>
                             </>
                           ) : (
-                            <Button onClick={handleAddValue} className="w-full"><Plus size={18} /> Añadir Pilar</Button>
+<Button onClick={handleAddValue} className="w-full" disabled={savingValue}>
+  <Plus size={18} /> {savingValue ? 'Guardando...' : 'Añadir Pilar'}
+</Button>
                           )}
                         </div>
                       </div>
