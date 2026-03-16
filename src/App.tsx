@@ -540,9 +540,9 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
   if (loading) return <div className="p-8 text-center text-slate-500">Cargando dashboard...</div>;
 
   return (
-    <div className="flex h-full">
-      <div className="flex-1 p-12 overflow-y-auto custom-scrollbar">
-        <div className="flex items-center justify-between mb-16">
+    <div className="h-full">
+<div className="p-12 overflow-y-auto custom-scrollbar max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-16">
           <div>
             <h1 className="text-5xl font-bold text-slate-900 tracking-tight">Hola, {currentUser.name.split(' ')[0]} </h1>
             <p className="text-slate-500 text-xl mt-2">Esto es lo que ha estado pasando en tu equipo hoy.</p>
@@ -789,38 +789,6 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
           </div>
         )}
       </div>
-
-      {/* Right Sidebar */}
-      <aside className="w-[400px] bg-white border-l border-slate-100 p-12 overflow-y-auto custom-scrollbar hidden xl:block">
-        <div className="text-center mb-16">
-          <div className="relative inline-block mb-8">
-            <div className="absolute inset-0 bg-indigo-500 rounded-[3rem] blur-2xl opacity-20 animate-pulse" />
-            <img src={currentUser.avatar} alt={currentUser.name} className="w-40 h-40 rounded-[3rem] bg-slate-50 p-1.5 border-2 border-slate-100 shadow-2xl relative z-10" referrerPolicy="no-referrer" />
-            <div className="absolute bottom-4 right-4 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white z-20" />
-          </div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">{currentUser.name}</h2>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">{currentUser.isAdmin ? 'Administrador' : 'Colaborador'}</p>
-          
-          <div className="mt-8 flex justify-center">
-            <div className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 shadow-sm">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-              Disponible para Feedback
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-12">
-          <div className="bg-slate-900 p-10 rounded-[3rem] text-white relative overflow-hidden group">
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-500 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity" />
-            <div className="relative z-10">
-              <Trophy className="text-indigo-400 mb-6" size={32} />
-              <h4 className="text-2xl font-bold mb-2">¡Sigue así!</h4>
-              <p className="text-slate-400 text-sm leading-relaxed mb-8">Has enviado 5 reconocimientos esta semana. Tu impacto es visible.</p>
-              <Button className="w-full bg-white text-slate-900 hover:bg-slate-100">Ver mis logros</Button>
-            </div>
-          </div>
-        </div>
-      </aside>
 
       {/* Collaborator Detail Modal */}
       <AnimatePresence>
