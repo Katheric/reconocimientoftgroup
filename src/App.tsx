@@ -175,11 +175,14 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
 <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#fa5800]/20 rounded-full blur-3xl animate-pulse" />
 <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#fa5800]/10 rounded-full blur-3xl animate-pulse delay-700" />
 <Trophy className="text-[#fa5800] mb-8" size={64} />
+
+<h2 className="text-4xl font-bold text-white mb-4 tracking-tight">
+  Celebra lo extraordinario.
+</h2>
+
 <p className="text-white/70 text-xl leading-relaxed">
-              <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">Celebra lo extraordinario.</h2>
-              <p className="text-indigo-100/60 text-xl leading-relaxed">
-                Una plataforma diseñada para hacer que el reconocimiento sea parte del día a día.
-              </p>
+  Una plataforma diseñada para hacer que el reconocimiento sea parte del día a día.
+</p>
             </div>
           </div>
         </div>
