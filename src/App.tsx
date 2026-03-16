@@ -67,7 +67,7 @@ const SidebarItem = ({
         : "text-slate-400 hover:text-slate-900 hover:bg-white/50"
     )}
   >
-    <Icon size={20} className={cn(active ? "text-indigo-600" : "group-hover:scale-110 transition-transform")} />
+    <Icon size={20} className={cn(active ? "text-[#fa5800]" : "group-hover:scale-110 transition-transform")} />
     {!collapsed && <span className="font-semibold text-[15px]">{label}</span>}
   </button>
 );
@@ -93,11 +93,11 @@ const Button = ({
   ...props 
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' }) => {
   const variants = {
-    primary: "bg-slate-900 text-white hover:bg-slate-800 shadow-sm",
-    secondary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
-    outline: "border border-slate-200 text-slate-700 hover:bg-slate-50",
-    ghost: "text-slate-400 hover:text-slate-900 hover:bg-white/50",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100"
+  primary: "bg-[#101c30] text-white hover:opacity-90 shadow-sm",
+  secondary: "bg-[#fa5800] text-white hover:opacity-90 shadow-sm",
+  outline: "border border-slate-200 text-slate-700 hover:bg-slate-50",
+  ghost: "text-slate-400 hover:text-slate-900 hover:bg-white/50",
+  danger: "bg-red-50 text-red-600 hover:bg-red-100"
   };
 
   return (
@@ -128,7 +128,7 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
               <img src={config.company.logo} alt={config.company.name} className="h-12 object-contain" referrerPolicy="no-referrer" />
             ) : (
               <>
-                <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xl">
+                <div className="w-12 h-12 bg-[#101c30] rounded-2xl flex items-center justify-center shadow-xl">
                   <Heart className="text-white" size={24} />
                 </div>
                 <span className="font-bold text-3xl tracking-tight text-slate-900">Reconocimiento</span>
@@ -149,11 +149,10 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
                 placeholder="nombre@empresa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-6 py-5 rounded-[1.5rem] border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-lg"
-              />
+                className="w-full px-6 py-5 rounded-[1.5rem] border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-[#fa5800]/10 focus:border-[#fa5800] outline-none transition-all text-lg"              />
             </div>
             <Button 
-              className="w-full py-5 text-xl rounded-[1.5rem] shadow-xl shadow-indigo-100" 
+              className="w-full py-5 text-xl rounded-[1.5rem] shadow-xl shadow-[#fa5800]/20" 
               onClick={() => onLogin(email)}
               disabled={!email.includes('@')}
             >
@@ -167,16 +166,16 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
           </div>
         </div>
       </div>
-      <div className="hidden lg:block flex-1 bg-slate-900 relative overflow-hidden">
+      <div className="hidden lg:block flex-1 bg-[#101c30] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#4f46e5,transparent_70%)]" />
+<div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#fa5800,transparent_70%)]" />
         </div>
         <div className="absolute inset-0 flex items-center justify-center p-24">
           <div className="relative">
-            <div className="absolute -top-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-emerald-500/20 rounded-full blur-3xl animate-pulse delay-700" />
-            <div className="bg-white/10 backdrop-blur-2xl border border-white/10 p-12 rounded-[4rem] relative z-10 shadow-2xl">
-              <Trophy className="text-indigo-400 mb-8" size={64} />
+<div className="absolute -top-20 -left-20 w-64 h-64 bg-[#fa5800]/20 rounded-full blur-3xl animate-pulse" />
+<div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#fa5800]/10 rounded-full blur-3xl animate-pulse delay-700" />
+<Trophy className="text-[#fa5800] mb-8" size={64} />
+<p className="text-white/70 text-xl leading-relaxed">
               <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">Celebra lo extraordinario.</h2>
               <p className="text-indigo-100/60 text-xl leading-relaxed">
                 Una plataforma diseñada para hacer que el reconocimiento sea parte del día a día.
@@ -256,7 +255,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
         <motion.div 
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-32 h-32 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-emerald-200"
+className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-[#fa5800]/20"
         >
           <CheckCircle2 size={64} />
         </motion.div>
@@ -287,11 +286,11 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                 <div className={cn(
                   "w-10 h-10 rounded-2xl flex items-center justify-center font-bold transition-all duration-500",
                   step === i ? "bg-slate-900 text-white shadow-lg scale-110" : 
-                  step > i ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400"
+                  step > i ? "bg-[#fa5800] text-white" : "bg-slate-100 text-slate-400"
                 )}>
                   {step > i ? <CheckCircle2 size={18} /> : i}
                 </div>
-                {i < 3 && <div className={cn("w-12 h-1 bg-slate-100 rounded-full", step > i && "bg-emerald-500")} />}
+{i < 3 && <div className={cn("w-12 h-1 bg-slate-100 rounded-full", step > i && "bg-[#fa5800]")} />}
               </div>
             ))}
           </div>
@@ -327,7 +326,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                 <button
                   key={v.id}
                   onClick={() => { setSelectedValue(v); setStep(2); }}
-                  className="group relative h-[320px] w-full rounded-[3.5rem] overflow-hidden shadow-2xl hover:shadow-indigo-500/20 transition-all duration-700 border-4 border-transparent hover:border-slate-900 flex flex-col"
+className="group relative h-[320px] w-full rounded-[3.5rem] overflow-hidden shadow-2xl hover:shadow-[#fa5800]/20 transition-all duration-700 border-4 border-transparent hover:border-[#101c30] flex flex-col"          
                 >
                   <img 
                     src={v.image || `https://picsum.photos/seed/${v.name}/800/1200`} 
@@ -365,7 +364,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                 <input 
                   type="text"
                   placeholder="Busca por nombre, cargo o correo..."
-                  className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl focus:outline-none focus:ring-8 focus:ring-indigo-500/5 text-2xl placeholder:text-slate-300 transition-all"
+className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl focus:outline-none focus:ring-8 focus:ring-[#fa5800]/10 text-2xl placeholder:text-slate-300 transition-all"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus
@@ -380,18 +379,18 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                     className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex items-center gap-8 group text-left relative overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-10 transition-opacity">
-                      <Sparkles size={40} className="text-indigo-600" />
+<Sparkles size={40} className="text-[#fa5800]" />
                     </div>
                     <div className="relative">
                       <img src={c.avatar} alt={c.name} className="w-24 h-24 rounded-[2rem] bg-slate-50 p-1.5 group-hover:scale-110 transition-transform duration-500 shadow-inner" referrerPolicy="no-referrer" />
-                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white shadow-lg" />
+<div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-white shadow-lg" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 text-2xl truncate mb-1">{c.name}</p>
                       <div className="flex flex-col gap-1">
                         <p className="text-slate-400 text-base truncate font-medium">{c.email}</p>
                         {c.area && (
-                          <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-md w-fit">
+<span className="text-[10px] text-[#101c30] font-bold uppercase tracking-widest bg-[#101c30]/10 px-2 py-0.5 rounded-md w-fit">
                             {c.area}
                           </span>
                         )}
@@ -443,7 +442,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                       handleNominate();
                     }} 
                     disabled={!story.trim() || isSubmitting}
-                    className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-indigo-100"
+className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
                     variant="secondary"
                   >
                     {isSubmitting ? "Enviando..." : "Confirmar y Enviar Reconocimiento"}
@@ -459,7 +458,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
                     <div className="flex items-center gap-6">
                       <div className="relative">
                         <img src={selectedCollab?.avatar} alt={selectedCollab?.name} className="w-20 h-20 rounded-[1.5rem] bg-white/10 p-1.5 border border-white/10" referrerPolicy="no-referrer" />
-                        <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-full border-4 border-slate-900" />
+<div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-slate-900" />
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Para</p>
@@ -566,14 +565,14 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
             <p className="text-6xl font-bold text-slate-900 relative z-10">{recognitions.length}</p>
           </Card>
           <Card className="p-10 rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-50 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Users className="text-emerald-600 mb-6 relative z-10" size={32} />
+<div className="absolute -top-10 -right-10 w-40 h-40 bg-[#101c30]/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+<Users className="text-[#101c30] mb-6 relative z-10" size={32} />
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 relative z-10">Miembros</p>
             <p className="text-6xl font-bold text-slate-900 relative z-10">{config.collaborators.length}</p>
           </Card>
           <Card className="p-10 rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-50 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Heart className="text-amber-600 mb-6 relative z-10" size={32} />
+<div className="absolute -top-10 -right-10 w-40 h-40 bg-[#fa5800]/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+<Heart className="text-[#fa5800] mb-6 relative z-10" size={32} />
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 relative z-10">Pilares</p>
             <p className="text-6xl font-bold text-slate-900 relative z-10">{config.values.length}</p>
           </Card>
