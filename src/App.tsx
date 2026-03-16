@@ -167,26 +167,29 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
         </div>
       </div>
       <div className="hidden lg:block flex-1 bg-[#101c30] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-<div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#fa5800,transparent_70%)]" />
-        </div>
-        <div className="absolute inset-0 flex items-center justify-center p-24">
-          <div className="relative">
-<div className="absolute -top-20 -left-20 w-64 h-64 bg-[#fa5800]/20 rounded-full blur-3xl animate-pulse" />
-<div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#fa5800]/10 rounded-full blur-3xl animate-pulse delay-700" />
-<Trophy className="text-[#fa5800] mb-8" size={64} />
+  <div className="absolute inset-0 opacity-20">
+    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#fa5800,transparent_70%)]" />
+  </div>
 
-<h2 className="text-4xl font-bold text-white mb-4 tracking-tight">
-  Celebra lo extraordinario.
-</h2>
+  <div className="absolute inset-0 flex items-center justify-center p-24">
+    <div className="relative">
+      <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#fa5800]/20 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#fa5800]/10 rounded-full blur-3xl animate-pulse delay-700" />
 
-<p className="text-white/70 text-xl leading-relaxed">
-  Una plataforma diseñada para hacer que el reconocimiento sea parte del día a día.
-</p>
-            </div>
-          </div>
-        </div>
+      <div className="bg-white/10 backdrop-blur-2xl border border-white/10 p-12 rounded-[4rem] relative z-10 shadow-2xl">
+        <Trophy className="text-[#fa5800] mb-8" size={64} />
+
+        <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">
+          Celebra lo extraordinario.
+        </h2>
+
+        <p className="text-white/70 text-xl leading-relaxed">
+          Una plataforma diseñada para hacer que el reconocimiento sea parte del día a día.
+        </p>
       </div>
+    </div>
+  </div>
+</div>
     </div>
   );
 };
