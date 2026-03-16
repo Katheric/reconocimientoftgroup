@@ -2146,7 +2146,7 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 };
   
   return (
-    <div className="flex min-h-screen bg-[#F8F9FB]">
+    <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
       <aside className="w-72 p-8 flex flex-col fixed h-full z-40">
         <div className="flex items-center gap-3 mb-12 px-2">
