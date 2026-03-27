@@ -1209,9 +1209,20 @@ const fetchRecognitions = async () => {
     const res = await fetch('/api/recognitions');
     const data = await res.json();
 
-    const normalizedData = Array.isArray(data)
-      ? data.map(normalizeRecognition)
-      : [];
+    console.log('RECOGNITIONS RAW:', data);
+
+    if (!Array.isArray(data)) {
+      console.error('La API de recognitions no devolvió un array:', data);
+      setAllRecognitions([]);
+      return;
+    }
+
+    const normalizedData = data.map(normalizeRecognition);
+
+    console.log('RECOGNITIONS NORMALIZED:', normalizedData);
+    console.log('PENDIENTES:', normalizedData.filter(r => r.score === null).length);
+    console.log('VALIDADAS:', normalizedData.filter(r => r.score === 1).length);
+    console.log('DESCARTADAS:', normalizedData.filter(r => r.score === 0).length);
 
     setAllRecognitions(normalizedData);
   } catch (error) {
