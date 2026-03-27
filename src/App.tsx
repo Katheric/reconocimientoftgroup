@@ -1183,8 +1183,11 @@ const EvaluationsView = ({
   setRecognitions,
   recognitionsLoading,
 }: EvaluationsViewProps) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
+const [selectedFile, setSelectedFile] = useState<string | null>(null);
+const [selectedRecognition, setSelectedRecognition] = useState<Recognition | null>(null);
+const [selectedRecognitionAttachments, setSelectedRecognitionAttachments] = useState<string[]>([]);
+const [attachmentsLoading, setAttachmentsLoading] = useState(false);
 
   const allRecognitions = recognitions;
   const loading = recognitionsLoading;
@@ -1224,6 +1227,28 @@ const handleSetScore = async (id: number, score: 1 | 0) => {
     alert('Error al guardar la calificación');
   }
 };
+
+  const openRecognitionDetail = async (recognition: Recognition) => {
+  setSelectedRecognition(recognition);
+  setSelectedRecognitionAttachments([]);
+
+  if (!recognition.attachmentCount) return;
+
+  try {
+    setAttachmentsLoading(true);
+    const res = await fetch(`/api/recognitions?id=${recognition.id}`);
+    const data = await res.json();
+
+    setSelectedRecognitionAttachments(
+      Array.isArray(data.attachments) ? data.attachments : []
+    );
+  } catch (error) {
+    console.error('Error loading recognition attachments:', error);
+  } finally {
+    setAttachmentsLoading(false);
+  }
+};
+
 
 const filteredRecognitions = allRecognitions.filter(r => {
   if (activeTab === 'pending') return r.score === null;
@@ -1276,8 +1301,12 @@ const tabs = [
 
       <div className="space-y-6">
       {filteredRecognitions.slice(0, 20).map(r => (
-          <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100 overflow-hidden relative">
-            <div className="flex flex-col lg:flex-row gap-8">
+  <Card
+    key={r.id}
+    onClick={() => openRecognitionDetail(r)}
+    className="p-8 hover:shadow-lg transition-all border border-slate-100 overflow-hidden relative cursor-pointer"
+  >
+        <div className="flex flex-col lg:flex-row gap-8">
               <div className="lg:w-1/3 space-y-4">
                 <div className="flex items-center gap-4">
                   <img src={r.toAvatar} alt={r.toName} className="w-12 h-12 rounded-2xl bg-white" referrerPolicy="no-referrer" />
@@ -1298,9 +1327,12 @@ const tabs = [
                 <div className="pt-4 border-t border-slate-100">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3">¿Aplica este reconocimiento?</p>
                   <div className="flex gap-3">
-                    <button
-                      onClick={() => handleSetScore(r.id, 1)}
-                      className={cn(
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    handleSetScore(r.id, 1);
+  }}
+  className={cn(
                         "flex-1 py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm",
                         r.score === 1 
                           ? "bg-emerald-100 text-emerald-600 border-2 border-emerald-200" 
@@ -1310,9 +1342,12 @@ const tabs = [
                       <CheckCircle2 size={18} />
                       Aplica
                     </button>
-                    <button
-                      onClick={() => handleSetScore(r.id, 0)}
-                      className={cn(
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    handleSetScore(r.id, 0);
+  }}
+  className={cn(
                         "flex-1 py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm",
                         r.score === 0 
                           ? "bg-rose-100 text-rose-600 border-2 border-rose-200" 
@@ -1364,6 +1399,119 @@ const tabs = [
       </div>
 
       <AnimatePresence>
+        {selectedRecognition && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => {
+              setSelectedRecognition(null);
+              setSelectedRecognitionAttachments([]);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900">Detalle de reconocimiento</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {selectedRecognition.fromName} → {selectedRecognition.toName}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedRecognition(null);
+                    setSelectedRecognitionAttachments([]);
+                  }}
+                  className="w-12 h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 transition-all flex items-center justify-center"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-8">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                    Historia
+                  </p>
+                  <div className="bg-slate-50 rounded-[2rem] p-6 text-slate-700 text-lg leading-relaxed italic">
+                    "{selectedRecognition.story}"
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                    Adjuntos
+                  </p>
+
+                  {attachmentsLoading ? (
+                    <div className="text-slate-500">Cargando adjuntos...</div>
+                  ) : selectedRecognitionAttachments.length === 0 ? (
+                    <div className="text-slate-400">No hay adjuntos para esta historia.</div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedRecognitionAttachments.map((att, i) => {
+                        const isImage = String(att).startsWith('data:image');
+
+                        return (
+                          <div
+                            key={i}
+                            className="rounded-[2rem] border border-slate-100 overflow-hidden bg-white shadow-sm"
+                          >
+                            <div
+                              className="aspect-square cursor-pointer"
+                              onClick={() => {
+                                if (isImage) setSelectedFile(att);
+                              }}
+                            >
+                              {isImage ? (
+                                <img
+                                  src={att}
+                                  alt={`Adjunto ${i + 1}`}
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50">
+                                  <Paperclip size={28} />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="p-4">
+                              <button
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = att;
+                                  link.download = isImage ? `adjunto-${i + 1}.png` : `adjunto-${i + 1}`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                }}
+                                className="w-full px-4 py-3 rounded-2xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition-all flex items-center justify-center gap-2"
+                              >
+                                <Download size={16} />
+                                Descargar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {selectedFile && (
           <FilePreviewModal file={selectedFile} onClose={() => setSelectedFile(null)} />
         )}
