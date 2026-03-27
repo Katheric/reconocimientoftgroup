@@ -320,26 +320,25 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
   const activePeriods = config.periods.filter(p => p.isActive === 1);
   const activePeriod = activePeriods[0];
 
-  const filteredCollabs = config.collaborators.filter(c => {
-    const isSelf = c.id === currentUser.id;
-    const isMaster = c.isMaster === 1;
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
-                         c.email.toLowerCase().includes(search.toLowerCase()) ||
-                         (c.area && c.area.toLowerCase().includes(search.toLowerCase()));
-    
-    if (isSelf || isMaster || !matchesSearch) return false;
+const filteredCollabs = config.collaborators.filter(c => {
+  const isMaster = c.isMaster === 1;
+  const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
+                       c.email.toLowerCase().includes(search.toLowerCase()) ||
+                       (c.area && c.area.toLowerCase().includes(search.toLowerCase()));
+  
+  if (isMaster || !matchesSearch) return false;
 
-    // Filter by linked collaborators if any are specified in active periods
-    const linkedIds = new Set<number>();
-    activePeriods.forEach(p => {
-      if (p.linkedCollaboratorIds && p.linkedCollaboratorIds.length > 0) {
-        p.linkedCollaboratorIds.forEach(id => linkedIds.add(id));
-      }
-    });
-
-    if (linkedIds.size === 0) return true;
-    return linkedIds.has(c.id);
+  const linkedIds = new Set<number>();
+  activePeriods.forEach(p => {
+    if (p.linkedCollaboratorIds && p.linkedCollaboratorIds.length > 0) {
+      p.linkedCollaboratorIds.forEach(id => linkedIds.add(id));
+    }
   });
+
+  if (linkedIds.size === 0) return true;
+  return linkedIds.has(c.id);
+});
+
 
   const handleNominate = async () => {
     console.log('handleNominate called', { selectedValue, selectedCollab, storyLength: story.length, attachmentsCount: attachments.length });
