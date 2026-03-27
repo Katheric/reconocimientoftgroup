@@ -7,26 +7,32 @@ export default async function handler(req: any, res: any) {
 
   try {
     if (req.method === 'GET') {
-      const response = await fetch(`${appsScriptUrl}?action=getRecognitions`);
+      const { id } = req.query;
+
+      const url = id
+        ? `${appsScriptUrl}?action=getRecognitionById&id=${id}`
+        : `${appsScriptUrl}?action=getRecognitions`;
+
+      const response = await fetch(url);
       const data = await response.json();
       return res.status(200).json(data);
     }
 
-if (req.method === 'POST') {
-  const { fromId, toId, valueId, story, attachments } = req.body;
+    if (req.method === 'POST') {
+      const { fromId, toId, valueId, story, attachments } = req.body;
 
-  const response = await fetch(appsScriptUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'createRecognition',
-      fromId,
-      toId,
-      valueId,
-      story,
-      attachments: Array.isArray(attachments) ? attachments : []
-    })
-  });
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createRecognition',
+          fromId,
+          toId,
+          valueId,
+          story,
+          attachments: Array.isArray(attachments) ? attachments : []
+        })
+      });
 
       const data = await response.json();
 
