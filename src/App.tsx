@@ -1184,59 +1184,36 @@ useEffect(() => {
   );
 };
 
-const EvaluationsView = ({ config }: { config: AppConfig }) => {
-  const [allRecognitions, setAllRecognitions] = useState<Recognition[]>([]);
-  const [loading, setLoading] = useState(true);
+
+type EvaluationsViewProps = {
+  config: AppConfig;
+  recognitions: Recognition[];
+  setRecognitions: React.Dispatch<React.SetStateAction<Recognition[]>>;
+  recognitionsLoading: boolean;
+  refreshRecognitions: (force?: boolean) => Promise<void>;
+};
+
+const EvaluationsView = ({
+  config,
+  recognitions,
+  setRecognitions,
+  recognitionsLoading,
+}: EvaluationsViewProps) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-const normalizeScore = (score: any): number | null => {
-  if (score === 1 || score === '1') return 1;
-  if (score === 0 || score === '0') return 0;
-  if (score === -1 || score === '-1') return 0;
-  if (score === '' || score === undefined) return null;
-  if (score === null) return null;
-  return null;
-};
+  const allRecognitions = recognitions;
+  const loading = recognitionsLoading;
 
-const normalizeRecognition = (recognition: any) => ({
-  ...recognition,
-  score: normalizeScore(recognition.score)
-});
 
-const fetchRecognitions = async () => {
-  try {
-    const res = await fetch('/api/recognitions');
-    const data = await res.json();
-
-    console.log('RECOGNITIONS RAW:', data);
-
-    if (!Array.isArray(data)) {
-      console.error('La API de recognitions no devolvió un array:', data);
-      setAllRecognitions([]);
-      return;
-    }
-
-    const normalizedData = data.map(normalizeRecognition);
-
-    console.log('RECOGNITIONS NORMALIZED:', normalizedData);
-    console.log('PENDIENTES:', normalizedData.filter(r => r.score === null).length);
-    console.log('VALIDADAS:', normalizedData.filter(r => r.score === 1).length);
-    console.log('DESCARTADAS:', normalizedData.filter(r => r.score === 0).length);
-
-    setAllRecognitions(normalizedData);
-  } catch (error) {
-    console.error('Error fetching recognitions:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-useEffect(() => {
-  fetchRecognitions();
-}, []);
 
 const handleSetScore = async (id: number, score: 1 | 0) => {
+  const previous = allRecognitions;
+
+  setRecognitions(prev =>
+    prev.map(r => (r.id === id ? { ...r, score } : r))
+  );
+
   try {
     const response = await fetch('/api/recognitions', {
       method: 'PATCH',
@@ -1244,11 +1221,12 @@ const handleSetScore = async (id: number, score: 1 | 0) => {
       body: JSON.stringify({ id, score })
     });
 
-    if (!response.ok) throw new Error('Failed to set score');
-
-    await fetchRecognitions();
+    if (!response.ok) {
+      throw new Error('Failed to set score');
+    }
   } catch (error) {
     console.error('Error setting score:', error);
+    setRecognitions(previous);
     alert('Error al guardar la calificación');
   }
 };
@@ -2633,6 +2611,45 @@ export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [recognitions, setRecognitions] = useState<Recognition[]>([]);
+  const [recognitionsLoading, setRecognitionsLoading] = useState(false);
+  const [recognitionsLoaded, setRecognitionsLoaded] = useState(false);
+
+  const normalizeScore = (score: any): number | null => {
+    if (score === 1 || score === '1') return 1;
+    if (score === 0 || score === '0') return 0;
+    if (score === -1 || score === '-1') return 0;
+    if (score === '' || score === undefined || score === null) return null;
+    return null;
+  };
+
+  const normalizeRecognition = (recognition: any) => ({
+    ...recognition,
+    score: normalizeScore(recognition.score)
+  });
+
+  const refreshRecognitions = async (force = false) => {
+    if (recognitionsLoading) return;
+    if (recognitionsLoaded && !force) return;
+
+    try {
+      setRecognitionsLoading(true);
+      const res = await fetch('/api/recognitions');
+      const data = await res.json();
+
+      const normalizedData = Array.isArray(data)
+        ? data.map(normalizeRecognition)
+        : [];
+
+      setRecognitions(normalizedData);
+      setRecognitionsLoaded(true);
+    } catch (error) {
+      console.error('Error fetching recognitions:', error);
+    } finally {
+      setRecognitionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/config')
       .then(res => res.json())
@@ -2641,6 +2658,12 @@ export default function App() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (view === 'evaluations' || view === 'dashboard') {
+      refreshRecognitions();
+    }
+  }, [view]);
 
   const handleLogin = (email: string) => {
     if (!config) return;
@@ -2654,18 +2677,28 @@ export default function App() {
     }
   };
 
-  const handleNominate = async (toId: number, valueId: number, story: string, attachments: string[]) => {
-    console.log('Parent handleNominate called', { toId, valueId, storyLength: story.length, attachmentsCount: attachments.length, userId: user?.id });
-    if (!user) {
-      console.warn('No user logged in during nomination');
-      return false;
+const handleNominate = async (toId: number, valueId: number, story: string, attachments: string[]) => {
+  if (!user) return false;
+
+  try {
+    const response = await fetch('/api/recognitions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromId: user.id, toId, valueId, story, attachments })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'No se pudo crear el reconocimiento');
     }
-    try {
-      const response = await fetch('/api/recognitions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromId: user.id, toId, valueId, story, attachments })
-      });
+
+    await refreshRecognitions(true);
+    return true;
+  } catch (error) {
+    console.error('Error creating recognition:', error);
+    return false;
+  }
+};
       console.log('API response status:', response.status);
       if (!response.ok) {
         const errorData = await response.json();
@@ -2786,21 +2819,35 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 ml-72 min-h-screen flex flex-col">
         <div className="flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={view}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="h-full"
-            >
-              {view === 'recognize' && config && <RecognizeView config={config} currentUser={user} onNominate={handleNominate} />}
-              {view === 'dashboard' && config && <DashboardView config={config} currentUser={user} />}
-              {view === 'evaluations' && config && <EvaluationsView config={config} />}
-              {view === 'admin' && config && user && <AdminView config={config} onUpdateConfig={(newC) => setConfig({ ...config, ...newC })} currentUser={user} />}
-            </motion.div>
-          </AnimatePresence>
+<AnimatePresence mode="wait">
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    transition={{ duration: 0.3 }}
+    className="h-full"
+  >
+    {view === 'recognize' && config && <RecognizeView config={config} currentUser={user} onNominate={handleNominate} />}
+    {view === 'dashboard' && config && (
+      <DashboardView
+        config={config}
+        currentUser={user}
+        recognitions={recognitions}
+        refreshRecognitions={refreshRecognitions}
+      />
+    )}
+    {view === 'evaluations' && config && (
+      <EvaluationsView
+        config={config}
+        recognitions={recognitions}
+        setRecognitions={setRecognitions}
+        recognitionsLoading={recognitionsLoading}
+        refreshRecognitions={refreshRecognitions}
+      />
+    )}
+    {view === 'admin' && config && user && <AdminView config={config} onUpdateConfig={(newC) => setConfig({ ...config, ...newC })} currentUser={user} />}
+  </motion.div>
+</AnimatePresence>
         </div>
         <Footer />
       </main>
