@@ -743,8 +743,8 @@ useEffect(() => {
   refreshRecognitions();
 
   Promise.all([
-    fetch('/api/stats/top-nominators').then(res => res.json()),
-    fetch('/api/stats/ambassadors').then(res => res.json())
+    fetch('/api/stats?type=top-nominators').then(res => res.json()),
+    fetch('/api/stats?type=ambassadors').then(res => res.json())
   ])
     .then(([topData, ambData]) => {
       setTopNominators(Array.isArray(topData) ? topData : []);
@@ -1544,13 +1544,13 @@ const AdminView = ({ config, onUpdateConfig, currentUser }: { config: AppConfig,
   const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (activeTab === 'voting') {
-      fetch('/api/stats/top-nominators')
-        .then(res => res.json())
-        .then(data => setTopNominators(data));
-    }
-  }, [activeTab]);
+useEffect(() => {
+  if (activeTab === 'voting') {
+    fetch('/api/stats?type=top-nominators')
+      .then(res => res.json())
+      .then(data => setTopNominators(Array.isArray(data) ? data : []));
+  }
+}, [activeTab]);
 
   const handleAddPeriod = async () => {
     if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
