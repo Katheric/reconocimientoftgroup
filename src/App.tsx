@@ -896,31 +896,22 @@ useEffect(() => {
                           <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{new Date(r.createdAt).toLocaleDateString()}</span>
                         </div>
                         <p className="text-slate-500 text-lg line-clamp-2 leading-relaxed italic">"{r.story}"</p>
-                        {r.attachments && r.attachments.length > 0 && (
-                          <div className="mt-4 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                            {r.attachments.map((att, i) => (
-                              <div 
-                                key={i} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedFile(att);
-                                }}
-                                className="w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shrink-0 shadow-sm relative group/att"
-                              >
-                                {att.startsWith('data:image') ? (
-                                  <img src={att} alt="Attachment" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                ) : (
-                                  <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-400">
-                                    <Paperclip size={16} />
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/0 group-hover/att:bg-black/20 transition-colors flex items-center justify-center">
-                                  <Maximize2 className="text-white opacity-0 group-hover/att:opacity-100 transition-opacity" size={14} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+
+{r.attachmentCount > 0 && (
+  <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+    <Paperclip size={14} />
+    <span>
+      {r.attachmentCount} {r.attachmentCount === 1 ? 'archivo adjunto' : 'archivos adjuntos'}
+    </span>
+    {r.firstAttachmentType === 'image' && (
+      <span className="text-[10px] px-2 py-1 rounded-lg bg-brand-50 text-brand-600 font-bold uppercase tracking-widest">
+        Imagen
+      </span>
+    )}
+  </div>
+)}
+
+                        
                         <div className="mt-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <img src={r.fromAvatar} alt={r.fromName} className="w-6 h-6 rounded-lg" referrerPolicy="no-referrer" />
@@ -1137,31 +1128,21 @@ useEffect(() => {
                         </div>
                         <p className="text-slate-600 text-2xl leading-relaxed italic font-medium">"{r.story}"</p>
                         
-                        {r.attachments && r.attachments.length > 0 && (
-                          <div className="mt-8 flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
-                            {r.attachments.map((att, i) => (
-                              <div 
-                                key={i} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedFile(att);
-                                }}
-                                className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-100 shrink-0 shadow-sm relative group/att cursor-pointer hover:shadow-lg transition-all"
-                              >
-                                {att.startsWith('data:image') ? (
-                                  <img src={att} alt="Attachment" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                ) : (
-                                  <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-400">
-                                    <Paperclip size={32} />
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/0 group-hover/att:bg-black/20 transition-colors flex items-center justify-center">
-                                  <Maximize2 className="text-white opacity-0 group-hover/att:opacity-100 transition-opacity" size={24} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+{r.attachmentCount > 0 && (
+  <div className="mt-6 flex items-center gap-3 text-sm text-slate-500">
+    <Paperclip size={16} />
+    <span>
+      {r.attachmentCount} {r.attachmentCount === 1 ? 'archivo adjunto' : 'archivos adjuntos'}
+    </span>
+    {r.firstAttachmentType === 'image' && (
+      <span className="text-[10px] px-2 py-1 rounded-lg bg-brand-50 text-brand-600 font-bold uppercase tracking-widest">
+        Imagen
+      </span>
+    )}
+  </div>
+)}
+
+                        
 
                         <div className="mt-10 pt-10 border-t border-slate-100 flex items-center gap-4">
                           <img src={r.fromAvatar} alt={r.fromName} className="w-10 h-10 rounded-xl" referrerPolicy="no-referrer" />
@@ -1205,15 +1186,18 @@ const EvaluationsView = ({
   const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-if (loading) {
-  return (
-    <div className="p-12 max-w-7xl mx-auto">
-      <div className="bg-white rounded-[3rem] border border-slate-100 py-24 text-center text-slate-500">
-        Cargando evaluaciones...
+  const allRecognitions = recognitions;
+  const loading = recognitionsLoading;
+
+  if (loading) {
+    return (
+      <div className="p-12 max-w-7xl mx-auto">
+        <div className="bg-white rounded-[3rem] border border-slate-100 py-24 text-center text-slate-500">
+          Cargando evaluaciones...
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 
 
@@ -1362,14 +1346,9 @@ const tabs = [
     )}
   </div>
 )}
-              
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={20} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                
+
+            
               </div>
             </div>
           </Card>
