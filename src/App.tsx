@@ -277,8 +277,9 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
             </Button>
             <div className="pt-8 border-t border-white">
               <p className="text-xs text-slate-400 leading-relaxed">
-                <span className="font-bold text-slate-900">Acceso Master:</span><br />
-                <span className="font-mono">kath@metodosft.com</span>
+  <div className="py-10 text-[14px] text-slate-400 font-medium text-center border-t border-slate-100 mt-auto">
+    Una herramienta elaborada por <span className="text-[#fa5800] font-bold">FT Group</span>
+  </div>
               </p>
             </div>
           </div>
