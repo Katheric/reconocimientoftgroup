@@ -1623,11 +1623,14 @@ useEffect(() => {
       })).filter(m => m.name && m.email);
 
       if (members.length > 0) {
-        await fetch('/api/collaborators/bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ members })
-        });
+await fetch('/api/collaborators', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'bulk',
+    members
+  })
+});
         const res = await fetch('/api/config');
         const configData = await res.json();
         onUpdateConfig(configData);
