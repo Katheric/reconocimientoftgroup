@@ -714,22 +714,16 @@ type DashboardViewProps = {
 
 const DashboardView = ({ config, currentUser, recognitions, refreshRecognitions }: DashboardViewProps) => {
   const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
-  const [ambassadors, setAmbassadors] = useState<{ valueId: number, valueName: string, collabId: number, collabName: string, collabAvatar: string, totalValidated: number }[]>([]);
+  const [ambassadors, setAmbassadors] = useState<{ id: number, name: string, avatar: string, validatedCount: number }[]>([]);
   const [selectedCollab, setSelectedCollab] = useState<Collaborator | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const topAmbassadors = useMemo(() => {
-    const seenValues = new Set();
-    return ambassadors
-      .filter(amb => {
-        if (seenValues.has(amb.valueId)) return false;
-        seenValues.add(amb.valueId);
-        return true;
-      })
-      .sort((a, b) => b.totalValidated - a.totalValidated)
-      .slice(0, 6);
-  }, [ambassadors]);
+const topAmbassadors = useMemo(() => {
+  return [...ambassadors]
+    .sort((a, b) => b.validatedCount - a.validatedCount)
+    .slice(0, 5);
+}, [ambassadors]);
 
 const normalizeScore = (score: any): number | null => {
   if (score === 1 || score === '1') return 1;
@@ -753,8 +747,8 @@ useEffect(() => {
     fetch('/api/stats/ambassadors').then(res => res.json())
   ])
     .then(([topData, ambData]) => {
-      setTopNominators(topData);
-      setAmbassadors(ambData);
+      setTopNominators(Array.isArray(topData) ? topData : []);
+      setAmbassadors(Array.isArray(ambData) ? ambData : []);
       setLoading(false);
     })
     .catch(error => {
@@ -841,27 +835,42 @@ useEffect(() => {
                   <Sparkles className="text-amber-500" size={24} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {topAmbassadors.map(amb => (
-                    <div key={`${amb.valueId}-${amb.collabId}`} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <Trophy size={40} className="text-amber-500" />
-                      </div>
-                      <div className="flex items-center gap-4 mb-4">
-                        <img src={amb.collabAvatar} alt={amb.collabName} className="w-12 h-12 rounded-2xl bg-white p-1" referrerPolicy="no-referrer" />
-                        <div>
-                          <p className="font-bold text-slate-900 truncate">{amb.collabName}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{amb.valueName}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-1">
-                          <CheckCircle2 size={14} className="text-emerald-500" />
-                          <span className="text-sm font-bold text-slate-900">{amb.totalValidated} Validados</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-lg">Embajador</span>
-                      </div>
-                    </div>
-                  ))}
+
+{topAmbassadors.map((amb, i) => (
+  <div key={amb.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+      <Trophy size={40} className="text-amber-500" />
+    </div>
+
+    <div className="flex items-center gap-4 mb-4">
+      <img
+        src={amb.avatar}
+        alt={amb.name}
+        className="w-12 h-12 rounded-2xl bg-white p-1"
+        referrerPolicy="no-referrer"
+      />
+      <div>
+        <p className="font-bold text-slate-900 truncate">{amb.name}</p>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          Puesto #{i + 1}
+        </p>
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+      <div className="flex items-center gap-1">
+        <CheckCircle2 size={14} className="text-emerald-500" />
+        <span className="text-sm font-bold text-slate-900">
+          {amb.validatedCount} validadas
+        </span>
+      </div>
+      <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-lg">
+        Embajador
+      </span>
+    </div>
+  </div>
+))}
+                  
                   {ambassadors.length === 0 && (
                     <div className="col-span-full py-12 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
                       <p className="text-slate-400 italic">Aún no hay embajadores calificados.</p>
