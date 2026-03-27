@@ -12,20 +12,21 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(data);
     }
 
-    if (req.method === 'POST') {
-      const { fromId, toId, valueId, story } = req.body;
+if (req.method === 'POST') {
+  const { fromId, toId, valueId, story, attachments } = req.body;
 
-      const response = await fetch(appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createRecognition',
-          fromId,
-          toId,
-          valueId,
-          story
-        })
-      });
+  const response = await fetch(appsScriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'createRecognition',
+      fromId,
+      toId,
+      valueId,
+      story,
+      attachments: Array.isArray(attachments) ? attachments : []
+    })
+  });
 
       const data = await response.json();
 
