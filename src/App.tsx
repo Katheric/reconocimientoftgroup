@@ -1730,23 +1730,26 @@ useEffect(() => {
     }
   };
 
-  const handleUpdateCollab = async () => {
-    if (!editingCollab) return;
-    await fetch(`/api/collaborators/${editingCollab.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: editingCollab.name,
-        email: editingCollab.email,
-        area: editingCollab.area,
-        isAdmin: editingCollab.isAdmin === 1
-      })
-    });
-    setEditingCollab(null);
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+const handleUpdateCollab = async () => {
+  if (!editingCollab) return;
+
+  await fetch('/api/collaborators', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: editingCollab.id,
+      name: editingCollab.name,
+      email: editingCollab.email,
+      area: editingCollab.area,
+      isAdmin: editingCollab.isAdmin === 1
+    })
+  });
+
+  setEditingCollab(null);
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+};
 
   const handleAddCollab = async () => {
     if (!newCollab.name || !newCollab.email) return;
@@ -1761,25 +1764,35 @@ useEffect(() => {
     onUpdateConfig(data);
   };
 
-  const handleDeleteCollab = async () => {
-    if (deletingCollabId === null) return;
-    await fetch(`/api/collaborators/${deletingCollabId}`, { method: 'DELETE' });
-    setDeletingCollabId(null);
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+const handleDeleteCollab = async () => {
+  if (deletingCollabId === null) return;
 
-  const toggleAdmin = async (id: number, current: number) => {
-    await fetch(`/api/collaborators/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isAdmin: current === 1 ? 0 : 1 })
-    });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+  await fetch('/api/collaborators', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: deletingCollabId })
+  });
+
+  setDeletingCollabId(null);
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+};
+
+const toggleAdmin = async (id: number, current: number) => {
+  await fetch('/api/collaborators', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id,
+      isAdmin: current === 1 ? 0 : 1
+    })
+  });
+
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+};
 
   const toggleVoting = async () => {
     const newState = companyForm.votingOpen === 1 ? 0 : 1;
@@ -2846,11 +2859,14 @@ const handleNominate = async (toId: number, valueId: number, story: string, atta
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const avatar = evt.target?.result as string;
-      await fetch(`/api/collaborators/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatar })
-      });
+await fetch('/api/collaborators', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    id: user.id,
+    avatar
+  })
+});
       setUser({ ...user, avatar });
       // Refresh config to update avatar everywhere
       const res = await fetch('/api/config');
