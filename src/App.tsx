@@ -340,6 +340,13 @@ const filteredCollabs = config.collaborators.filter(c => {
   return linkedIds.has(c.id);
 });
 
+  const refreshConfig = async () => {
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+  return data;
+};
+
 
   const handleNominate = async () => {
     console.log('handleNominate called', { selectedValue, selectedCollab, storyLength: story.length, attachmentsCount: attachments.length });
@@ -1552,25 +1559,57 @@ useEffect(() => {
   }
 }, [activeTab]);
 
-  const handleAddPeriod = async () => {
-    if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
-    await fetch('/api/periods', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newPeriod)
-    });
-    setNewPeriod({ name: '', startDate: '', endDate: '' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+const handleAddPeriod = async () => {
+  if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
 
-  const handleActivatePeriod = async (id: number) => {
-    await fetch(`/api/periods/${id}/activate`, { method: 'PATCH' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+  const response = await fetch('/api/periods', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newPeriod)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo crear el periodo');
+    return;
+  }
+
+  onUpdateConfig({
+    periods: [
+      ...config.periods,
+      {
+        id: result.id,
+        ...newPeriod,
+        isActive: 0
+      }
+    ]
+  });
+
+  setNewPeriod({ name: '', startDate: '', endDate: '' });
+
+  await refreshConfig();
+};
+
+const handleActivatePeriod = async (id: number) => {
+  await fetch('/api/periods', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'activate',
+      id
+    })
+  });
+
+  onUpdateConfig({
+    periods: config.periods.map(p => ({
+      ...p,
+      isActive: p.id === id ? 1 : 0
+    }))
+  });
+
+  await refreshConfig();
+};
 
   const handleUpdatePeriod = async () => {
     if (!editingPeriod) return;
@@ -1585,136 +1624,212 @@ useEffect(() => {
     onUpdateConfig(data);
   };
 
-  const handleDeletePeriod = async (id: number) => {
-    await fetch(`/api/periods/${id}`, { method: 'DELETE' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
+const handleDeletePeriod = async (id: number) => {
+  await fetch('/api/periods', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+
+  onUpdateConfig({
+    periods: config.periods.filter(p => p.id !== id)
+  });
+
+  await refreshConfig();
+};
+
+const toggleShowResults = async () => {
+  const newShowResults = companyForm.showResults === 1 ? 0 : 1;
+  const updatedCompany = { ...companyForm, showResults: newShowResults };
+
+  setCompanyForm(updatedCompany);
+  onUpdateConfig({ company: updatedCompany });
+
+  await fetch('/api/company', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updatedCompany)
+  });
+
+  await refreshConfig();
+};
+
+const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    const data = evt.target?.result;
+    if (!data) return;
+    const wb = XLSX.read(data, { type: 'array' });
+    const wsname = wb.SheetNames[0];
+    const ws = wb.Sheets[wsname];
+    const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
+
+    const members = jsonData.map(item => ({
+      name: item.Nombre || item.name || item.Name,
+      email: item.Email || item.email || item.Correo,
+      area: item.Area || item.area || item.Departamento || item.Department,
+      isAdmin: item.Admin === 'Si' || item.admin === true || item.Admin === 1
+    })).filter(m => m.name && m.email);
+
+    if (members.length > 0) {
+      await fetch('/api/collaborators', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'bulk',
+          members
+        })
+      });
+
+      await refreshConfig();
+      alert(`Se han importado ${members.length} miembros exitosamente.`);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+const handleSaveCompany = async () => {
+  const response = await fetch('/api/company', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(companyForm)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo guardar la empresa');
+    return;
+  }
+
+  const updatedCompany = {
+    ...companyForm,
+    logo: result.savedLogo || companyForm.logo
   };
 
-  const toggleShowResults = async () => {
-    const newShowResults = companyForm.showResults === 1 ? 0 : 1;
-    setCompanyForm({ ...companyForm, showResults: newShowResults });
-    await fetch('/api/company', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...companyForm, showResults: newShowResults })
-    });
-    onUpdateConfig({ company: { ...companyForm, showResults: newShowResults } });
-  };
+  setCompanyForm(updatedCompany);
+  onUpdateConfig({ company: updatedCompany });
 
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  await refreshConfig();
+};
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const data = evt.target?.result;
-      if (!data) return;
-      const wb = XLSX.read(data, { type: 'array' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
+const handleAddValue = async () => {
+  if (!newValue.name) return;
 
-      const members = jsonData.map(item => ({
-        name: item.Nombre || item.name || item.Name,
-        email: item.Email || item.email || item.Correo,
-        area: item.Area || item.area || item.Departamento || item.Department,
-        isAdmin: item.Admin === 'Si' || item.admin === true || item.Admin === 1
-      })).filter(m => m.name && m.email);
+  const response = await fetch('/api/values', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newValue)
+  });
 
-      if (members.length > 0) {
-await fetch('/api/collaborators', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    action: 'bulk',
-    members
-  })
-});
-        const res = await fetch('/api/config');
-        const configData = await res.json();
-        onUpdateConfig(configData);
-        alert(`Se han importado ${members.length} miembros exitosamente.`);
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo crear el valor');
+    return;
+  }
+
+  onUpdateConfig({
+    values: [
+      ...config.values,
+      {
+        id: result.id,
+        ...newValue
       }
-    };
-    reader.readAsArrayBuffer(file);
-  };
+    ]
+  });
 
-  const handleSaveCompany = async () => {
-    await fetch('/api/company', {
-      method: 'POST',
+  setNewValue({ name: '', icon: 'Sparkles', image: '' });
+
+  await refreshConfig();
+};
+
+const handleUpdateValue = async () => {
+  if (!editingValue || !editingValue.name) return;
+
+  await fetch('/api/values', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: editingValue.id,
+      ...editingValue
+    })
+  });
+
+  setEditingValue(null);
+  await refreshConfig();
+};
+
+const handleDeleteValue = async (id: number) => {
+  try {
+    const response = await fetch('/api/values', {
+      method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(companyForm)
+      body: JSON.stringify({ id })
     });
-    onUpdateConfig({ company: companyForm });
-  };
 
-  const handleAddValue = async () => {
-    if (!newValue.name) return;
-    await fetch('/api/values', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newValue)
+    if (!response.ok) throw new Error('Failed to delete value');
+
+    onUpdateConfig({
+      values: config.values.filter(v => v.id !== id)
     });
-    setNewValue({ name: '', icon: 'Sparkles', image: '' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
 
-  const handleUpdateValue = async () => {
-    if (!editingValue || !editingValue.name) return;
-    await fetch(`/api/values/${editingValue.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingValue)
-    });
-    setEditingValue(null);
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+    await refreshConfig();
+  } catch (error) {
+    console.error('Error deleting value:', error);
+    alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
+  }
+};
 
-  const handleDeleteValue = async (id: number) => {
-    try {
-      const response = await fetch(`/api/values/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete value');
-      
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      onUpdateConfig(data);
-    } catch (error) {
-      console.error('Error deleting value:', error);
-      alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
-    }
-  };
+const handleAddArea = async () => {
+  if (!newAreaName.trim()) return;
 
-  const handleAddArea = async () => {
-    if (!newAreaName.trim()) return;
-    const response = await fetch('/api/areas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newAreaName.trim() })
-    });
-    if (response.ok) {
-      setNewAreaName('');
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      onUpdateConfig(data);
-    } else {
-      const err = await response.json();
-      alert(err.error);
-    }
-  };
+  const response = await fetch('/api/areas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newAreaName.trim() })
+  });
 
-  const handleDeleteArea = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar esta área?')) return;
-    await fetch(`/api/areas/${id}`, { method: 'DELETE' });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo crear el área');
+    return;
+  }
+
+  onUpdateConfig({
+    areas: [
+      ...config.areas,
+      {
+        id: result.id,
+        name: newAreaName.trim()
+      }
+    ]
+  });
+
+  setNewAreaName('');
+
+  await refreshConfig();
+};
+
+const handleDeleteArea = async (id: number) => {
+  if (!confirm('¿Estás seguro de eliminar esta área?')) return;
+
+  await fetch('/api/areas', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+
+  onUpdateConfig({
+    areas: config.areas.filter(a => a.id !== id)
+  });
+
+  await refreshConfig();
+};
 
   const handleUpdateArea = async () => {
     if (!editingArea || !editingArea.name.trim()) return;
@@ -1755,18 +1870,26 @@ const handleUpdateCollab = async () => {
   onUpdateConfig(data);
 };
 
-  const handleAddCollab = async () => {
-    if (!newCollab.name || !newCollab.email) return;
-    await fetch('/api/collaborators', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newCollab)
-    });
-    setNewCollab({ name: '', email: '', area: '', isAdmin: false });
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+const handleAddCollab = async () => {
+  if (!newCollab.name || !newCollab.email) return;
+
+  const response = await fetch('/api/collaborators', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newCollab)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo crear el colaborador');
+    return;
+  }
+
+  setNewCollab({ name: '', email: '', area: '', isAdmin: false });
+
+  await refreshConfig();
+};
 
 const handleDeleteCollab = async () => {
   if (deletingCollabId === null) return;
