@@ -705,8 +705,14 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
   );
 };
 
-const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser: Collaborator }) => {
-  const [recognitions, setRecognitions] = useState<Recognition[]>([]);
+type DashboardViewProps = {
+  config: AppConfig;
+  currentUser: Collaborator;
+  recognitions: Recognition[];
+  refreshRecognitions: (force?: boolean) => Promise<void>;
+};
+
+const DashboardView = ({ config, currentUser, recognitions, refreshRecognitions }: DashboardViewProps) => {
   const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
   const [ambassadors, setAmbassadors] = useState<{ valueId: number, valueName: string, collabId: number, collabName: string, collabAvatar: string, totalValidated: number }[]>([]);
   const [selectedCollab, setSelectedCollab] = useState<Collaborator | null>(null);
@@ -740,17 +746,13 @@ const normalizeRecognition = (recognition: any) => ({
 });
 
 useEffect(() => {
+  refreshRecognitions();
+
   Promise.all([
-    fetch('/api/recognitions').then(res => res.json()),
     fetch('/api/stats/top-nominators').then(res => res.json()),
     fetch('/api/stats/ambassadors').then(res => res.json())
   ])
-    .then(([recData, topData, ambData]) => {
-      const normalizedRecognitions = Array.isArray(recData)
-        ? recData.map(normalizeRecognition)
-        : [];
-
-      setRecognitions(normalizedRecognitions);
+    .then(([topData, ambData]) => {
       setTopNominators(topData);
       setAmbassadors(ambData);
       setLoading(false);
@@ -761,6 +763,7 @@ useEffect(() => {
     });
 }, []);
 
+  
   const statsByValue = useMemo(() => {
     return config.values.map(v => {
       const valueRecognitions = recognitions.filter(r => r.valueId === v.id && r.score === 1);
@@ -1328,15 +1331,6 @@ const tabs = [
                       <X size={18} />
                       No aplica
                     </button>
-                    {r.score !== null && (
-                      <button
-                        onClick={() => handleSetScore(r.id, null)}
-                        className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-slate-100 transition-all"
-                        title="Resetear evaluación"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -2677,6 +2671,7 @@ export default function App() {
     }
   };
 
+
 const handleNominate = async (toId: number, valueId: number, story: string, attachments: string[]) => {
   if (!user) return false;
 
@@ -2699,22 +2694,6 @@ const handleNominate = async (toId: number, valueId: number, story: string, atta
     return false;
   }
 };
-      console.log('API response status:', response.status);
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API error data:', errorData);
-        alert(errorData.error || 'Error al enviar reconocimiento');
-        return false;
-      }
-      
-      alert('¡Reconocimiento enviado con éxito!');
-      return true;
-    } catch (error) {
-      console.error('Error nominating:', error);
-      alert('Error de conexión al enviar reconocimiento');
-      return false;
-    }
-  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-white">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
