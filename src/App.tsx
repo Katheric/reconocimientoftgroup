@@ -1205,8 +1205,15 @@ const EvaluationsView = ({
   const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  const allRecognitions = recognitions;
-  const loading = recognitionsLoading;
+if (loading) {
+  return (
+    <div className="p-12 max-w-7xl mx-auto">
+      <div className="bg-white rounded-[3rem] border border-slate-100 py-24 text-center text-slate-500">
+        Cargando evaluaciones...
+      </div>
+    </div>
+  );
+}
 
 
 
@@ -1284,7 +1291,7 @@ const tabs = [
       </div>
 
       <div className="space-y-6">
-        {filteredRecognitions.map(r => (
+      {filteredRecognitions.slice(0, 20).map(r => (
           <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100 overflow-hidden relative">
             <div className="flex flex-col lg:flex-row gap-8">
               <div className="lg:w-1/3 space-y-4">
@@ -1342,21 +1349,20 @@ const tabs = [
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Historia compartida por {r.fromName}</p>
                 <p className="text-xl text-slate-700 leading-relaxed italic font-medium mb-6">"{r.story}"</p>
                 
-                {r.attachments && r.attachments.length > 0 && (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
-                    {r.attachments.map((att, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => setSelectedFile(att)}
-                        className="aspect-square rounded-2xl overflow-hidden border border-slate-100 shadow-sm group cursor-pointer hover:shadow-lg transition-all relative"
-                      >
-                        {att.startsWith('data:image') ? (
-                          <img src={att} alt="Attachment" className="w-full h-full object-cover group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
-                        ) : (
-                          <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-400">
-                            <Paperclip size={24} />
-                          </div>
-                        )}
+{r.attachmentCount > 0 && (
+  <div className="mt-4 flex items-center gap-3 text-sm text-slate-500">
+    <Paperclip size={16} />
+    <span>
+      {r.attachmentCount} {r.attachmentCount === 1 ? 'archivo adjunto' : 'archivos adjuntos'}
+    </span>
+    {r.firstAttachmentType === 'image' && (
+      <span className="px-2 py-1 rounded-lg bg-brand-50 text-brand-600 text-[10px] font-bold uppercase tracking-widest">
+        Imagen
+      </span>
+    )}
+  </div>
+)}
+              
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                           <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={20} />
                         </div>
