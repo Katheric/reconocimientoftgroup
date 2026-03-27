@@ -725,18 +725,41 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
       .slice(0, 6);
   }, [ambassadors]);
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/recognitions').then(res => res.json()),
-      fetch('/api/stats/top-nominators').then(res => res.json()),
-      fetch('/api/stats/ambassadors').then(res => res.json())
-    ]).then(([recData, topData, ambData]) => {
-      setRecognitions(recData);
+const normalizeScore = (score: any): number | null => {
+  if (score === 1 || score === '1') return 1;
+  if (score === 0 || score === '0') return 0;
+  if (score === -1 || score === '-1') return 0;
+  if (score === '' || score === undefined) return null;
+  if (score === null) return null;
+  return null;
+};
+
+const normalizeRecognition = (recognition: any) => ({
+  ...recognition,
+  score: normalizeScore(recognition.score)
+});
+
+useEffect(() => {
+  Promise.all([
+    fetch('/api/recognitions').then(res => res.json()),
+    fetch('/api/stats/top-nominators').then(res => res.json()),
+    fetch('/api/stats/ambassadors').then(res => res.json())
+  ])
+    .then(([recData, topData, ambData]) => {
+      const normalizedRecognitions = Array.isArray(recData)
+        ? recData.map(normalizeRecognition)
+        : [];
+
+      setRecognitions(normalizedRecognitions);
       setTopNominators(topData);
       setAmbassadors(ambData);
       setLoading(false);
+    })
+    .catch(error => {
+      console.error('Error loading dashboard:', error);
+      setLoading(false);
     });
-  }, []);
+}, []);
 
   const statsByValue = useMemo(() => {
     return config.values.map(v => {
@@ -1167,55 +1190,70 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'validated' | 'discarded'>('pending');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  const fetchRecognitions = async () => {
-    try {
-      const res = await fetch('/api/recognitions');
-      const data = await res.json();
-      setAllRecognitions(data);
-    } catch (error) {
-      console.error('Error fetching recognitions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const normalizeScore = (score: any): number | null => {
+  if (score === 1 || score === '1') return 1;
+  if (score === 0 || score === '0') return 0;
+  if (score === -1 || score === '-1') return 0;
+  if (score === '' || score === undefined) return null;
+  if (score === null) return null;
+  return null;
+};
 
-  useEffect(() => {
-    fetchRecognitions();
-  }, []);
+const normalizeRecognition = (recognition: any) => ({
+  ...recognition,
+  score: normalizeScore(recognition.score)
+});
 
-  const handleSetScore = async (id: number, score: number | null) => {
-    try {
-      const response = await fetch(`/api/recognitions/${id}/score`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score })
-      });
-      
-      if (!response.ok) throw new Error('Failed to set score');
-      
-      const res = await fetch('/api/recognitions');
-      const data = await res.json();
-      setAllRecognitions(data);
-    } catch (error) {
-      console.error('Error setting score:', error);
-      alert('Error al guardar la calificación');
-    }
-  };
+const fetchRecognitions = async () => {
+  try {
+    const res = await fetch('/api/recognitions');
+    const data = await res.json();
 
-  const filteredRecognitions = allRecognitions.filter(r => {
-    if (activeTab === 'pending') return r.score === null;
-    if (activeTab === 'validated') return r.score === 1;
-    if (activeTab === 'discarded') return r.score === 0;
-    return false;
-  });
+    const normalizedData = Array.isArray(data)
+      ? data.map(normalizeRecognition)
+      : [];
 
-  if (loading) return <div className="p-12 text-center text-slate-400 bg-white min-h-screen flex items-center justify-center">Cargando evaluaciones...</div>;
+    setAllRecognitions(normalizedData);
+  } catch (error) {
+    console.error('Error fetching recognitions:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const tabs = [
-    { id: 'pending', label: 'Sin evaluar', count: allRecognitions.filter(r => r.score === null).length },
-    { id: 'validated', label: 'Validadas', count: allRecognitions.filter(r => r.score === 1).length },
-    { id: 'discarded', label: 'Descartadas', count: allRecognitions.filter(r => r.score === 0).length },
-  ];
+useEffect(() => {
+  fetchRecognitions();
+}, []);
+
+const handleSetScore = async (id: number, score: 1 | 0) => {
+  try {
+    const response = await fetch('/api/recognitions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, score })
+    });
+
+    if (!response.ok) throw new Error('Failed to set score');
+
+    await fetchRecognitions();
+  } catch (error) {
+    console.error('Error setting score:', error);
+    alert('Error al guardar la calificación');
+  }
+};
+
+const filteredRecognitions = allRecognitions.filter(r => {
+  if (activeTab === 'pending') return r.score === null;
+  if (activeTab === 'validated') return r.score === 1;
+  if (activeTab === 'discarded') return r.score === 0;
+  return false;
+});
+
+const tabs = [
+  { id: 'pending', label: 'Sin evaluar', count: allRecognitions.filter(r => r.score === null).length },
+  { id: 'validated', label: 'Validadas', count: allRecognitions.filter(r => r.score === 1).length },
+  { id: 'discarded', label: 'Descartadas', count: allRecognitions.filter(r => r.score === 0).length },
+];
 
   return (
     <div className="p-12 max-w-7xl mx-auto">
