@@ -2071,39 +2071,32 @@ setCompanyForm({
       if (editingValue && (editingValue as any).imageFileId) {
         formData.append('oldFileId', (editingValue as any).imageFileId);
       }
-const uploadRes = await fetch('/api/upload', {
-  method: 'POST',
-  body: formData
-});
 
-const rawText = await uploadRes.text();
-let uploadData: any = null;
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-try {
-  uploadData = JSON.parse(rawText);
-} catch {
-  throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
-}
+      const rawText = await uploadRes.text();
+      let uploadData: any = null;
 
-if (!uploadRes.ok) {
-  throw new Error(uploadData?.error || 'Error al subir imagen del pilar');
-}
+      try {
+        uploadData = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+      }
 
-if (editingValue) {
-  setEditingValue({
-    ...editingValue,
-    image: uploadData.url,
-    imageFileId: uploadData.fileId
-  } as any);
-} else {
-  setNewValue({
-    ...newValue,
-    image: uploadData.url,
-    imageFileId: uploadData.fileId
-  } as any);
-}
-        
-      else {
+      if (!uploadRes.ok) {
+        throw new Error(uploadData?.error || 'Error al subir imagen del pilar');
+      }
+
+      if (editingValue) {
+        setEditingValue({
+          ...editingValue,
+          image: uploadData.url,
+          imageFileId: uploadData.fileId
+        } as any);
+      } else {
         setNewValue({
           ...newValue,
           image: uploadData.url,
@@ -2117,7 +2110,7 @@ if (editingValue) {
     }
   }}
 />
-
+                                
                                 
                               </label>
                             </div>
