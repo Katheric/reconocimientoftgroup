@@ -6,24 +6,62 @@ export const config = {
 
 export const runtime = 'nodejs';
 
-import formidable from 'formidable';
-import fs from 'fs';
+import formidable, { type Fields, type Files, type File } from 'formidable';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { Writable } from 'stream';
 
-function parseForm(req: any): Promise<{ fields: formidable.Fields; files: formidable.Files }> {
-  const form = formidable({ multiples: false });
+type ParsedForm = {
+  fields: Fields;
+  files: Files;
+  fileBuffer: Buffer | null;
+};
 
+function parseForm(req: NextApiRequest): Promise<ParsedForm> {
   return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+
+    const form = formidable({
+      multiples: false,
+      maxFiles: 1,
+      maxFileSize: 15 * 1024 * 1024,
+      allowEmptyFiles: false,
+      fileWriteStreamHandler: () => {
+        return new Writable({
+          write(chunk, _encoding, callback) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            callback();
+          }
+        });
+      }
+    });
+
     form.parse(req, (err, fields, files) => {
       if (err) {
         reject(err);
-      } else {
-        resolve({ fields, files });
+        return;
       }
+
+      resolve({
+        fields,
+        files,
+        fileBuffer: chunks.length ? Buffer.concat(chunks) : null
+      });
     });
   });
 }
 
-export default async function handler(req: any, res: any) {
+function getSingleField(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || '';
+  return value || '';
+}
+
+function getSingleFile(files: Files): File | null {
+  const raw = files.file;
+  if (!raw) return null;
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const appsScriptUrl = process.env.APPS_SCRIPT_URL;
 
   if (!appsScriptUrl) {
@@ -35,20 +73,35 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { fields, files } = await parseForm(req);
-
-    const file = Array.isArray(files.file) ? files.file[0] : files.file;
+    const { fields, files, fileBuffer } = await parseForm(req);
+    const file = getSingleFile(files);
 
     if (!file) {
       return res.status(400).json({ error: 'Archivo requerido' });
     }
 
-    if (!file.filepath) {
-      return res.status(400).json({ error: 'No se pudo leer el archivo temporal' });
+    if (!fileBuffer || !fileBuffer.length) {
+      return res.status(400).json({ error: 'No se pudo leer el archivo recibido' });
     }
 
-    const buffer = fs.readFileSync(file.filepath);
-    const base64 = buffer.toString('base64');
+    const mimeType = file.mimetype || 'application/octet-stream';
+    const fileName = file.originalFilename || `upload_${Date.now()}`;
+
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'application/pdf'
+    ];
+
+    if (!allowedMimeTypes.includes(mimeType)) {
+      return res.status(400).json({
+        error: `Tipo de archivo no permitido: ${mimeType}. Solo se permiten imágenes y PDF.`
+      });
+    }
+
+    const base64 = fileBuffer.toString('base64');
 
     const response = await fetch(appsScriptUrl, {
       method: 'POST',
@@ -56,12 +109,12 @@ export default async function handler(req: any, res: any) {
       body: JSON.stringify({
         action: 'uploadImage',
         payload: {
-          fileName: file.originalFilename || `upload_${Date.now()}`,
-          mimeType: file.mimetype || 'application/octet-stream',
+          fileName,
+          mimeType,
           base64,
-          folder: Array.isArray(fields.folder) ? fields.folder[0] : fields.folder || '',
-          type: Array.isArray(fields.type) ? fields.type[0] : fields.type || '',
-          oldFileId: Array.isArray(fields.oldFileId) ? fields.oldFileId[0] : fields.oldFileId || ''
+          folder: getSingleField(fields.folder),
+          type: getSingleField(fields.type),
+          oldFileId: getSingleField(fields.oldFileId)
         }
       })
     });
@@ -80,7 +133,7 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok || !data.success) {
       return res.status(400).json({
-        error: data.error || 'No se pudo subir la imagen'
+        error: data.error || 'No se pudo subir el archivo'
       });
     }
 
@@ -91,6 +144,13 @@ export default async function handler(req: any, res: any) {
     });
   } catch (error: any) {
     console.error('Error en /api/upload:', error);
+
+    if (error?.code === 1009 || String(error?.message || '').includes('maxFileSize')) {
+      return res.status(400).json({
+        error: 'El archivo excede el tamaño máximo permitido de 15 MB'
+      });
+    }
+
     return res.status(500).json({
       error: error?.message || 'Error interno al subir archivo'
     });
