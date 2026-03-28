@@ -887,6 +887,7 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
 const EvaluationsView = ({ config }: { config: AppConfig }) => {
   const [allRecognitions, setAllRecognitions] = useState<Recognition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'discarded'>('pending');
 
   const fetchRecognitions = async () => {
     try {
@@ -927,7 +928,15 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
     sinEvaluar: allRecognitions.filter(r => r.score === undefined || r.score === null).length,
     evaluadas: allRecognitions.filter(r => r.score === 1).length,
     descartadas: allRecognitions.filter(r => r.score === 0).length,
+    total: allRecognitions.length
   };
+
+  const filteredRecognitions = allRecognitions.filter(r => {
+    if (statusFilter === 'pending') return r.score === undefined || r.score === null;
+    if (statusFilter === 'approved') return r.score === 1;
+    if (statusFilter === 'discarded') return r.score === 0;
+    return true;
+  });
 
   if (loading) {
     return <div className="p-12 text-center text-slate-400">Cargando evaluaciones...</div>;
@@ -953,7 +962,14 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            Total
+          </p>
+          <p className="text-4xl font-bold text-slate-900">{stats.total}</p>
+        </div>
+
         <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-6">
           <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-2">
             Sin evaluar
@@ -976,8 +992,68 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-3 mb-8">
+        <button
+          onClick={() => setStatusFilter('all')}
+          className={cn(
+            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+            statusFilter === 'all'
+              ? "bg-slate-900 text-white shadow-lg"
+              : "bg-white text-slate-500 border border-slate-100 hover:bg-slate-50"
+          )}
+        >
+          Todos ({stats.total})
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('pending')}
+          className={cn(
+            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+            statusFilter === 'pending'
+              ? "bg-amber-500 text-white shadow-lg"
+              : "bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100"
+          )}
+        >
+          Sin evaluar ({stats.sinEvaluar})
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('approved')}
+          className={cn(
+            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+            statusFilter === 'approved'
+              ? "bg-emerald-600 text-white shadow-lg"
+              : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
+          )}
+        >
+          Evaluadas ({stats.evaluadas})
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('discarded')}
+          className={cn(
+            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+            statusFilter === 'discarded'
+              ? "bg-red-600 text-white shadow-lg"
+              : "bg-red-50 text-red-700 border border-red-100 hover:bg-red-100"
+          )}
+        >
+          Descartadas ({stats.descartadas})
+        </button>
+      </div>
+
+      <div className="mb-6">
+        <p className="text-sm text-slate-500 font-medium">
+          Mostrando <span className="font-bold text-slate-900">{filteredRecognitions.length}</span> reconocimiento(s)
+          {statusFilter === 'pending' && ' pendientes de evaluación'}
+          {statusFilter === 'approved' && ' evaluados'}
+          {statusFilter === 'discarded' && ' descartados'}
+          {statusFilter === 'all' && ' en total'}
+        </p>
+      </div>
+
       <div className="space-y-6">
-        {allRecognitions.map(r => (
+        {filteredRecognitions.map(r => (
           <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100">
             <div className="flex flex-col lg:flex-row gap-8">
               <div className="lg:w-1/3 space-y-4">
@@ -1095,10 +1171,12 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
           </Card>
         ))}
 
-        {allRecognitions.length === 0 && (
+        {filteredRecognitions.length === 0 && (
           <div className="text-center py-24 bg-white rounded-[3rem] border border-slate-100">
             <MessageSquare size={48} className="mx-auto text-slate-200 mb-4" />
-            <p className="text-slate-400 italic">Aún no hay historias para evaluar.</p>
+            <p className="text-slate-400 italic">
+              No hay reconocimientos en este estado.
+            </p>
           </div>
         )}
       </div>
