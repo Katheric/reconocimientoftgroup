@@ -1,38 +1,26 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { IncomingForm, type Fields, type Files, type File } from 'formidable';
+import { readFile } from 'fs/promises';
+
 export const config = {
   api: {
     bodyParser: false
   }
 };
 
-export const runtime = 'nodejs';
-
-import formidable, { type Fields, type Files, type File } from 'formidable';
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { Writable } from 'stream';
-
 type ParsedForm = {
   fields: Fields;
   files: Files;
-  fileBuffer: Buffer | null;
 };
 
 function parseForm(req: NextApiRequest): Promise<ParsedForm> {
   return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-
-    const form = formidable({
+    const form = new IncomingForm({
       multiples: false,
+      keepExtensions: true,
       maxFiles: 1,
       maxFileSize: 15 * 1024 * 1024,
-      allowEmptyFiles: false,
-      fileWriteStreamHandler: () => {
-        return new Writable({
-          write(chunk, _encoding, callback) {
-            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-            callback();
-          }
-        });
-      }
+      allowEmptyFiles: false
     });
 
     form.parse(req, (err, fields, files) => {
@@ -41,11 +29,7 @@ function parseForm(req: NextApiRequest): Promise<ParsedForm> {
         return;
       }
 
-      resolve({
-        fields,
-        files,
-        fileBuffer: chunks.length ? Buffer.concat(chunks) : null
-      });
+      resolve({ fields, files });
     });
   });
 }
@@ -56,9 +40,9 @@ function getSingleField(value: string | string[] | undefined): string {
 }
 
 function getSingleFile(files: Files): File | null {
-  const raw = files.file;
-  if (!raw) return null;
-  return Array.isArray(raw) ? raw[0] : raw;
+  const candidate = files.file;
+  if (!candidate) return null;
+  return Array.isArray(candidate) ? candidate[0] : candidate;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -73,15 +57,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { fields, files, fileBuffer } = await parseForm(req);
+    const { fields, files } = await parseForm(req);
     const file = getSingleFile(files);
 
     if (!file) {
       return res.status(400).json({ error: 'Archivo requerido' });
     }
 
-    if (!fileBuffer || !fileBuffer.length) {
-      return res.status(400).json({ error: 'No se pudo leer el archivo recibido' });
+    if (!file.filepath) {
+      return res.status(400).json({ error: 'No se pudo leer el archivo temporal' });
     }
 
     const mimeType = file.mimetype || 'application/octet-stream';
@@ -101,7 +85,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const base64 = fileBuffer.toString('base64');
+    const buffer = await readFile(file.filepath);
+    const base64 = buffer.toString('base64');
 
     const response = await fetch(appsScriptUrl, {
       method: 'POST',
