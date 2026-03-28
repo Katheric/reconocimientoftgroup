@@ -1059,14 +1059,6 @@ const handleAddPeriod = async () => {
 
     setNewPeriod({ name: '', startDate: '', endDate: '' });
 
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  } finally {
-    setSavingPeriod(false);
-  }
-};
-
   const handleActivatePeriod = async (id: number) => {
     await fetch('/api/periods', {
   method: 'PATCH',
@@ -1286,38 +1278,6 @@ const handleAddArea = async () => {
     onUpdateConfig(data);
   } catch (error: any) {
     alert(error.message || 'Error al crear área');
-  } finally {
-    setSavingArea(false);
-  }
-};
-
-const handleUpdateArea = async () => {
-  if (!editingArea || !editingArea.name.trim()) return;
-
-  try {
-    setSavingArea(true);
-
-    const response = await fetch('/api/areas', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: editingArea.id,
-        name: editingArea.name.trim()
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || 'No se pudo actualizar el área');
-    }
-
-    setEditingArea(null);
-
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  } catch (error: any) {
-    alert(error.message || 'Error al editar área');
   } finally {
     setSavingArea(false);
   }
