@@ -835,27 +835,49 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
                   <Sparkles className="text-amber-500" size={24} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {ambassadors.map(amb => (
-                    <div key={`${amb.valueId}-${amb.collabId}`} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <Trophy size={40} className="text-amber-500" />
-                      </div>
-                      <div className="flex items-center gap-4 mb-4">
-                        <img src={amb.collabAvatar} alt={amb.collabName} className="w-12 h-12 rounded-2xl bg-slate-50 p-1" referrerPolicy="no-referrer" />
-                        <div>
-                          <p className="font-bold text-slate-900 truncate">{amb.collabName}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{amb.valueName}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                        <div className="flex items-center gap-1">
-                          <Sparkles size={14} className="text-amber-500 fill-amber-500" />
-                          <span className="text-sm font-bold text-slate-900">{amb.avgScore.toFixed(1)}</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-lg">Embajador</span>
-                      </div>
-                    </div>
-                  ))}
+{ambassadors.map((amb: any, index) => (
+  <div
+    key={`${amb.valueId || 'value'}-${amb.collabId || amb.id || index}`}
+    className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden"
+  >
+    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+      <Trophy size={40} className="text-amber-500" />
+    </div>
+
+    <div className="flex items-center gap-4 mb-4">
+      <img
+        src={amb.collabAvatar || amb.avatar || 'https://via.placeholder.com/48'}
+        alt={amb.collabName || amb.name || 'Embajador'}
+        className="w-12 h-12 rounded-2xl bg-slate-50 p-1"
+        referrerPolicy="no-referrer"
+      />
+      <div>
+        <p className="font-bold text-slate-900 truncate">
+          {amb.collabName || amb.name || 'Sin nombre'}
+        </p>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          {amb.valueName || 'Embajador'}
+        </p>
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+      <div className="flex items-center gap-1">
+        <Sparkles size={14} className="text-amber-500 fill-amber-500" />
+        <span className="text-sm font-bold text-slate-900">
+          {typeof amb.avgScore === 'number'
+            ? amb.avgScore.toFixed(1)
+            : typeof amb.validatedCount === 'number'
+            ? amb.validatedCount
+            : 0}
+        </span>
+      </div>
+      <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-lg">
+        Embajador
+      </span>
+    </div>
+  </div>
+))}
                   {ambassadors.length === 0 && (
                     <div className="col-span-full py-12 text-center bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
                       <p className="text-slate-400 italic">Aún no hay embajadores calificados.</p>
@@ -1147,24 +1169,29 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
     fetchRecognitions();
   }, []);
 
-  const handleSetScore = async (id: number, score: 1 | 0) => {
-    try {
-      const response = await fetch('/api/recognitions', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, score })
-      });
+const handleSetScore = async (id: number, score: 1 | 0) => {
+  const previousRecognitions = allRecognitions;
 
-      if (!response.ok) throw new Error('Failed to set evaluation');
+  setAllRecognitions(prev =>
+    prev.map(r => (r.id === id ? { ...r, score } : r))
+  );
 
-      const res = await fetch('/api/recognitions');
-      const data = await res.json();
-      setAllRecognitions(data);
-    } catch (error) {
-      console.error('Error setting evaluation:', error);
-      alert('Error al guardar la evaluación');
+  try {
+    const response = await fetch('/api/recognitions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, score })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to set evaluation');
     }
-  };
+  } catch (error) {
+    console.error('Error setting evaluation:', error);
+    setAllRecognitions(previousRecognitions);
+    alert('Error al guardar la evaluación');
+  }
+};
 
   const stats = {
     sinEvaluar: allRecognitions.filter(r => r.score === undefined || r.score === null).length,
