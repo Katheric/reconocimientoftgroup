@@ -13,7 +13,16 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const { fromId, toId, valueId, story } = req.body;
+      const {
+        fromId,
+        toId,
+        valueId,
+        story,
+        attachmentUrl,
+        attachmentFileName,
+        attachmentMimeType,
+        attachmentFileId
+      } = req.body;
 
       const response = await fetch(appsScriptUrl, {
         method: 'POST',
@@ -23,14 +32,20 @@ export default async function handler(req: any, res: any) {
           fromId,
           toId,
           valueId,
-          story
+          story,
+          attachmentUrl: attachmentUrl || '',
+          attachmentFileName: attachmentFileName || '',
+          attachmentMimeType: attachmentMimeType || '',
+          attachmentFileId: attachmentFileId || ''
         })
       });
 
       const data = await response.json();
 
       if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo crear el reconocimiento' });
+        return res.status(400).json({
+          error: data.error || 'No se pudo crear el reconocimiento'
+        });
       }
 
       return res.status(200).json(data);
@@ -52,7 +67,9 @@ export default async function handler(req: any, res: any) {
       const data = await response.json();
 
       if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo guardar la calificación' });
+        return res.status(400).json({
+          error: data.error || 'No se pudo guardar la calificación'
+        });
       }
 
       return res.status(200).json(data);
