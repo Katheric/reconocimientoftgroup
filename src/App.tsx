@@ -2,7 +2,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { 
@@ -32,7 +31,11 @@ import {
   Camera,
   FileSpreadsheet,
   Calendar,
-  UserPlus
+  UserPlus,
+  Paperclip,
+  Download,
+  Eye,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -194,7 +197,26 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
   );
 };
 
-const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig, currentUser: Collaborator, onNominate: (toId: number, valueId: number, story: string) => Promise<boolean> }) => {
+
+const RecognizeView = ({ 
+  config, 
+  currentUser, 
+  onNominate 
+}: { 
+  config: AppConfig, 
+  currentUser: Collaborator, 
+  onNominate: (
+    toId: number, 
+    valueId: number, 
+    story: string,
+    attachment?: {
+      url: string;
+      fileName: string;
+      mimeType: string;
+      fileId?: string;
+    } | null
+  ) => Promise<boolean> 
+}) => {
   const [step, setStep] = useState(1);
   const [selectedValue, setSelectedValue] = useState<Value | null>(null);
   const [selectedCollab, setSelectedCollab] = useState<Collaborator | null>(null);
@@ -203,6 +225,16 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const [attachment, setAttachment] = useState<{
+    url: string;
+    fileName: string;
+    mimeType: string;
+    fileId?: string;
+  } | null>(null);
+
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
   const filteredCollabs = config.collaborators.filter(c => 
     c.id !== currentUser.id && 
     (c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -210,17 +242,70 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
      (c.area && c.area.toLowerCase().includes(search.toLowerCase())))
   );
 
+  const isImageAttachment = attachment?.mimeType?.startsWith('image/');
+
+  const handleAttachmentUpload = async (file: File) => {
+    try {
+      setUploadingAttachment(true);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'recognitions');
+      formData.append('type', 'recognition-attachment');
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const rawText = await uploadRes.text();
+      let uploadData: any = null;
+
+      try {
+        uploadData = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+      }
+
+      if (!uploadRes.ok) {
+        throw new Error(uploadData?.error || 'No se pudo subir el archivo');
+      }
+
+      setAttachment({
+        url: uploadData.url,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileId: uploadData.fileId
+      });
+    } catch (error: any) {
+      alert(error.message || 'Error al subir el archivo');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
   const handleNominate = async () => {
-    console.log('handleNominate called', { selectedValue, selectedCollab, storyLength: story.length });
+    console.log('handleNominate called', { 
+      selectedValue, 
+      selectedCollab, 
+      storyLength: story.length,
+      attachment 
+    });
+
     if (!selectedValue || !selectedCollab || !story.trim()) {
       console.warn('Missing required fields for nomination');
       return;
     }
+
     try {
       setIsSubmitting(true);
-      console.log('Calling onNominate...');
-      const success = await onNominate(selectedCollab.id, selectedValue.id, story.trim());
-      console.log('onNominate result:', success);
+      const success = await onNominate(
+        selectedCollab.id,
+        selectedValue.id,
+        story.trim(),
+        attachment
+      );
+
       if (success) {
         setShowSuccess(true);
       }
@@ -261,7 +346,7 @@ const RecognizeView = ({ config, currentUser, onNominate }: { config: AppConfig,
         <motion.div 
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-[#fa5800]/20"
+          className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-[#fa5800]/20"
         >
           <CheckCircle2 size={64} />
         </motion.div>
@@ -274,6 +359,7 @@ className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-cen
           setSelectedValue(null);
           setSelectedCollab(null);
           setStory('');
+          setAttachment(null);
           setShowSuccess(false);
         }} className="px-12 py-4 text-lg">
           Hacer otro reconocimiento
@@ -296,7 +382,7 @@ className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-cen
                 )}>
                   {step > i ? <CheckCircle2 size={18} /> : i}
                 </div>
-{i < 3 && <div className={cn("w-12 h-1 bg-slate-100 rounded-full", step > i && "bg-[#fa5800]")} />}
+                {i < 3 && <div className={cn("w-12 h-1 bg-slate-100 rounded-full", step > i && "bg-[#fa5800]")} />}
               </div>
             ))}
           </div>
@@ -332,7 +418,7 @@ className="w-32 h-32 bg-[#fa5800] rounded-[2.5rem] flex items-center justify-cen
                 <button
                   key={v.id}
                   onClick={() => { setSelectedValue(v); setStep(2); }}
-className="group relative h-[320px] w-full rounded-[3.5rem] overflow-hidden shadow-2xl hover:shadow-[#fa5800]/20 transition-all duration-700 border-4 border-transparent hover:border-[#101c30] flex flex-col"          
+                  className="group relative h-[320px] w-full rounded-[3.5rem] overflow-hidden shadow-2xl hover:shadow-[#fa5800]/20 transition-all duration-700 border-4 border-transparent hover:border-[#101c30] flex flex-col"
                 >
                   <img 
                     src={v.image || `https://picsum.photos/seed/${v.name}/800/1200`} 
@@ -370,7 +456,7 @@ className="group relative h-[320px] w-full rounded-[3.5rem] overflow-hidden shad
                 <input 
                   type="text"
                   placeholder="Busca por nombre, cargo o correo..."
-className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl focus:outline-none focus:ring-8 focus:ring-[#fa5800]/10 text-2xl placeholder:text-slate-300 transition-all"
+                  className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl focus:outline-none focus:ring-8 focus:ring-[#fa5800]/10 text-2xl placeholder:text-slate-300 transition-all"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus
@@ -385,18 +471,18 @@ className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-
                     className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex items-center gap-8 group text-left relative overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-10 transition-opacity">
-<Sparkles size={40} className="text-[#fa5800]" />
+                      <Sparkles size={40} className="text-[#fa5800]" />
                     </div>
                     <div className="relative">
                       <img src={c.avatar} alt={c.name} className="w-24 h-24 rounded-[2rem] bg-slate-50 p-1.5 group-hover:scale-110 transition-transform duration-500 shadow-inner" referrerPolicy="no-referrer" />
-<div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-white shadow-lg" />
+                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-white shadow-lg" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 text-2xl truncate mb-1">{c.name}</p>
                       <div className="flex flex-col gap-1">
                         <p className="text-slate-400 text-base truncate font-medium">{c.email}</p>
                         {c.area && (
-<span className="text-[10px] text-[#101c30] font-bold uppercase tracking-widest bg-[#101c30]/10 px-2 py-0.5 rounded-md w-fit">
+                          <span className="text-[10px] text-[#101c30] font-bold uppercase tracking-widest bg-[#101c30]/10 px-2 py-0.5 rounded-md w-fit">
                             {c.area}
                           </span>
                         )}
@@ -424,7 +510,11 @@ className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-
                   <div className="absolute top-0 right-0 p-12 opacity-5">
                     <MessageSquare size={120} />
                   </div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mb-10">Tu Historia de Reconocimiento</label>
+
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mb-10">
+                    Tu Historia de Reconocimiento
+                  </label>
+
                   <textarea 
                     className="w-full h-80 p-0 bg-transparent border-none focus:ring-0 text-3xl text-slate-900 placeholder:text-slate-200 resize-none leading-relaxed font-medium"
                     placeholder="Cuéntanos qué pasó... Sé específico y emocional."
@@ -432,23 +522,129 @@ className="w-full pl-20 pr-8 py-8 bg-white rounded-[2.5rem] border border-slate-
                     onChange={(e) => setStory(e.target.value)}
                     autoFocus
                   />
-                  <div className="mt-10 pt-10 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-slate-400">
-                      <Sparkles size={18} />
-                      <span className="text-sm font-medium">Tu historia inspira a otros.</span>
+
+                  <div className="mt-10 pt-10 border-t border-slate-50">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3 text-slate-400">
+                          <Sparkles size={18} />
+                          <span className="text-sm font-medium">Tu historia inspira a otros.</span>
+                        </div>
+                        <p className="text-slate-300 text-sm font-bold">{story.length} caracteres</p>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-5">
+                        <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">
+                              Evidencia adjunta
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              Puedes adjuntar una imagen o un archivo para respaldar la historia.
+                            </p>
+                          </div>
+
+                          <input
+                            ref={attachmentInputRef}
+                            type="file"
+                            className="hidden"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAttachmentUpload(file);
+                            }}
+                          />
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => attachmentInputRef.current?.click()}
+                            disabled={uploadingAttachment}
+                          >
+                            <Paperclip size={16} />
+                            {uploadingAttachment ? 'Subiendo...' : 'Adjuntar archivo'}
+                          </Button>
+                        </div>
+
+                        {attachment && (
+                          <div className="space-y-4">
+                            {isImageAttachment ? (
+                              <div className="rounded-[1.5rem] overflow-hidden border border-slate-200 bg-white">
+                                <img
+                                  src={attachment.url}
+                                  alt={attachment.fileName}
+                                  className="w-full max-h-72 object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            ) : (
+                              <div className="bg-white border border-slate-200 rounded-[1.5rem] p-4 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                  <FileText className="text-slate-500" size={22} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-slate-900 truncate">{attachment.fileName}</p>
+                                  <p className="text-sm text-slate-400 truncate">{attachment.mimeType}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-3 flex-wrap">
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 text-white hover:opacity-90 transition-all"
+                              >
+                                <Eye size={14} />
+                                Previsualizar
+                              </a>
+
+                              <a
+                                href={attachment.url}
+                                download={attachment.fileName}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all"
+                              >
+                                <Download size={14} />
+                                Descargar
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAttachment(null);
+                                  if (attachmentInputRef.current) {
+                                    attachmentInputRef.current.value = '';
+                                  }
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-red-50 text-red-600 hover:bg-red-100 transition-all"
+                              >
+                                <Trash2 size={14} />
+                                Quitar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {!attachment && !uploadingAttachment && (
+                          <div className="border border-dashed border-slate-200 rounded-[1.5rem] p-6 text-center text-slate-400">
+                            <Paperclip className="mx-auto mb-3" size={22} />
+                            <p className="text-sm font-medium">
+                              No has adjuntado ningún archivo todavía.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-slate-300 text-sm font-bold">{story.length} caracteres</p>
                   </div>
                 </Card>
+
                 <div className="flex gap-6">
                   <Button 
                     type="button"
-                    onClick={() => {
-                      console.log('Button clicked');
-                      handleNominate();
-                    }} 
-                    disabled={!story.trim() || isSubmitting}
-className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
+                    onClick={handleNominate}
+                    disabled={!story.trim() || isSubmitting || uploadingAttachment}
+                    className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
                     variant="secondary"
                   >
                     {isSubmitting ? "Enviando..." : "Confirmar y Enviar Reconocimiento"}
@@ -464,7 +660,7 @@ className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
                     <div className="flex items-center gap-6">
                       <div className="relative">
                         <img src={selectedCollab?.avatar} alt={selectedCollab?.name} className="w-20 h-20 rounded-[1.5rem] bg-white/10 p-1.5 border border-white/10" referrerPolicy="no-referrer" />
-<div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-slate-900" />
+                        <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-slate-900" />
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Para</p>
@@ -483,10 +679,37 @@ className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
                         <p className="text-2xl font-bold tracking-tight">{selectedValue?.name}</p>
                       </div>
                     </div>
+
+                    <div className="pt-8 border-t border-white/10">
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-3">Adjunto</p>
+
+                      {attachment ? (
+                        <div className="space-y-3">
+                          {isImageAttachment ? (
+                            <div className="rounded-[1.5rem] overflow-hidden border border-white/10">
+                              <img
+                                src={attachment.url}
+                                alt={attachment.fileName}
+                                className="w-full h-44 object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-white/5 border border-white/10 rounded-[1.5rem] p-4 flex items-center gap-3">
+                              <FileText size={18} className="text-white/70" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold truncate">{attachment.fileName}</p>
+                                <p className="text-xs text-slate-400 truncate">{attachment.mimeType}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Sin archivo adjunto</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                
-
               </div>
             </motion.div>
           )}
@@ -1053,123 +1276,188 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
       </div>
 
       <div className="space-y-6">
-        {filteredRecognitions.map(r => (
-          <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100">
-            <div className="flex flex-col lg:flex-row gap-8">
-              <div className="lg:w-1/3 space-y-4">
-                <div className="flex items-center gap-4">
-                  <img
-                    src={r.toAvatar}
-                    alt={r.toName}
-                    className="w-12 h-12 rounded-2xl bg-slate-100"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Para</p>
-                    <p className="font-bold text-slate-900">{r.toName}</p>
-                  </div>
-                </div>
+        {filteredRecognitions.map((r: any) => {
+          const hasAttachment = !!r.attachmentUrl;
+          const isImageAttachment = r.attachmentMimeType?.startsWith('image/');
 
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden">
-                    {r.valueImage && (
-                      <img
-                        src={r.valueImage}
-                        alt={r.valueName}
-                        className="w-full h-full object-cover opacity-80"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
+          return (
+            <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100">
+              <div className="flex flex-col lg:flex-row gap-8">
+                <div className="lg:w-1/3 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={r.toAvatar}
+                      alt={r.toName}
+                      className="w-12 h-12 rounded-2xl bg-slate-100"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Para</p>
+                      <p className="font-bold text-slate-900">{r.toName}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Valor</p>
-                    <p className="font-bold text-slate-900">{r.valueName}</p>
-                  </div>
-                </div>
 
-                <div className="pt-4 border-t border-slate-50">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
-                    Estado de validación
-                  </p>
-
-                  <div className="mb-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest",
-                        r.score === 1
-                          ? "bg-emerald-100 text-emerald-700"
-                          : r.score === 0
-                          ? "bg-red-100 text-red-700"
-                          : "bg-amber-100 text-amber-700"
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden">
+                      {r.valueImage && (
+                        <img
+                          src={r.valueImage}
+                          alt={r.valueName}
+                          className="w-full h-full object-cover opacity-80"
+                          referrerPolicy="no-referrer"
+                        />
                       )}
-                    >
-                      {r.score === 1 ? (
-                        <>
-                          <CheckCircle2 size={14} />
-                          Evaluada
-                        </>
-                      ) : r.score === 0 ? (
-                        <>
-                          <X size={14} />
-                          Descartada
-                        </>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Valor</p>
+                      <p className="font-bold text-slate-900">{r.valueName}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-50">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
+                      Estado de validación
+                    </p>
+
+                    <div className="mb-4">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest",
+                          r.score === 1
+                            ? "bg-emerald-100 text-emerald-700"
+                            : r.score === 0
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                        )}
+                      >
+                        {r.score === 1 ? (
+                          <>
+                            <CheckCircle2 size={14} />
+                            Evaluada
+                          </>
+                        ) : r.score === 0 ? (
+                          <>
+                            <X size={14} />
+                            Descartada
+                          </>
+                        ) : (
+                          <>
+                            <Bell size={14} />
+                            Sin evaluar
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
+                      Evidencia adjunta
+                    </p>
+
+                    <div className="mb-4">
+                      {hasAttachment ? (
+                        <div className="space-y-3">
+                          {isImageAttachment ? (
+                            <div className="rounded-[1.5rem] overflow-hidden border border-slate-200 bg-white">
+                              <img
+                                src={r.attachmentUrl}
+                                alt={r.attachmentFileName || 'Adjunto'}
+                                className="w-full h-44 object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-white border border-slate-200 rounded-[1.5rem] p-4 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                <FileText className="text-slate-500" size={18} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-slate-900 truncate">
+                                  {r.attachmentFileName || 'Archivo adjunto'}
+                                </p>
+                                <p className="text-xs text-slate-400 truncate">
+                                  {r.attachmentMimeType || 'Archivo'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex gap-3 flex-wrap">
+                            <a
+                              href={r.attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 text-white hover:opacity-90 transition-all"
+                            >
+                              <Eye size={14} />
+                              Previsualizar
+                            </a>
+
+                            <a
+                              href={r.attachmentUrl}
+                              download={r.attachmentFileName || 'adjunto'}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all"
+                            >
+                              <Download size={14} />
+                              Descargar
+                            </a>
+                          </div>
+                        </div>
                       ) : (
-                        <>
-                          <Bell size={14} />
-                          Sin evaluar
-                        </>
+                        <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-4 text-sm text-slate-400">
+                          Este reconocimiento no tiene archivo adjunto.
+                        </div>
                       )}
-                    </span>
-                  </div>
+                    </div>
 
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
-                    Evaluar reconocimiento
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">
+                      Evaluar reconocimiento
+                    </p>
+
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        onClick={() => handleSetScore(r.id, 1)}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+                          r.score === 1
+                            ? "bg-emerald-100 text-emerald-600"
+                            : "bg-slate-50 text-slate-400 hover:bg-emerald-50"
+                        )}
+                      >
+                        <CheckCircle2 size={16} />
+                        Aprobar
+                      </button>
+
+                      <button
+                        onClick={() => handleSetScore(r.id, 0)}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+                          r.score === 0
+                            ? "bg-red-100 text-red-600"
+                            : "bg-slate-50 text-slate-400 hover:bg-red-50"
+                        )}
+                      >
+                        <X size={16} />
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:w-2/3 bg-slate-50 p-8 rounded-[2rem] relative">
+                  <div className="absolute top-6 right-6 opacity-10">
+                    <MessageSquare size={40} />
+                  </div>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">
+                    Historia compartida por {r.fromName}
                   </p>
-
-                  <div className="flex gap-3 flex-wrap">
-                    <button
-                      onClick={() => handleSetScore(r.id, 1)}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
-                        r.score === 1
-                          ? "bg-emerald-100 text-emerald-600"
-                          : "bg-slate-50 text-slate-400 hover:bg-emerald-50"
-                      )}
-                    >
-                      <CheckCircle2 size={16} />
-                      Aprobar
-                    </button>
-
-                    <button
-                      onClick={() => handleSetScore(r.id, 0)}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
-                        r.score === 0
-                          ? "bg-red-100 text-red-600"
-                          : "bg-slate-50 text-slate-400 hover:bg-red-50"
-                      )}
-                    >
-                      <X size={16} />
-                      Descartar
-                    </button>
-                  </div>
+                  <p className="text-xl text-slate-700 leading-relaxed italic font-medium">
+                    "{r.story}"
+                  </p>
                 </div>
               </div>
-
-              <div className="lg:w-2/3 bg-slate-50 p-8 rounded-[2rem] relative">
-                <div className="absolute top-6 right-6 opacity-10">
-                  <MessageSquare size={40} />
-                </div>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">
-                  Historia compartida por {r.fromName}
-                </p>
-                <p className="text-xl text-slate-700 leading-relaxed italic font-medium">
-                  "{r.story}"
-                </p>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
 
         {filteredRecognitions.length === 0 && (
           <div className="text-center py-24 bg-white rounded-[3rem] border border-slate-100">
@@ -2479,35 +2767,64 @@ const [uploadingAvatar, setUploadingAvatar] = useState(false);
     }
   };
 
-  const handleNominate = async (toId: number, valueId: number, story: string) => {
-    console.log('Parent handleNominate called', { toId, valueId, storyLength: story.length, userId: user?.id });
-    if (!user) {
-      console.warn('No user logged in during nomination');
-      return false;
-    }
-    try {
-      const response = await fetch('/api/recognitions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromId: user.id, toId, valueId, story })
-      });
-      console.log('API response status:', response.status);
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API error data:', errorData);
-        alert(errorData.error || 'Error al enviar reconocimiento');
-        return false;
-      }
-      
-      alert('¡Reconocimiento enviado con éxito!');
-      return true;
-    } catch (error) {
-      console.error('Error nominating:', error);
-      alert('Error de conexión al enviar reconocimiento');
-      return false;
-    }
-  };
+const handleNominate = async (
+  toId: number,
+  valueId: number,
+  story: string,
+  attachment?: {
+    url: string;
+    fileName: string;
+    mimeType: string;
+    fileId?: string;
+  } | null
+) => {
+  console.log('Parent handleNominate called', {
+    toId,
+    valueId,
+    storyLength: story.length,
+    userId: user?.id,
+    attachment
+  });
 
+  if (!user) {
+    console.warn('No user logged in during nomination');
+    return false;
+  }
+
+  try {
+    const response = await fetch('/api/recognitions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromId: user.id,
+        toId,
+        valueId,
+        story,
+        attachmentUrl: attachment?.url || '',
+        attachmentFileName: attachment?.fileName || '',
+        attachmentMimeType: attachment?.mimeType || '',
+        attachmentFileId: attachment?.fileId || ''
+      })
+    });
+
+    console.log('API response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API error data:', errorData);
+      alert(errorData.error || 'Error al enviar reconocimiento');
+      return false;
+    }
+
+    alert('¡Reconocimiento enviado con éxito!');
+    return true;
+  } catch (error) {
+    console.error('Error nominating:', error);
+    alert('Error de conexión al enviar reconocimiento');
+    return false;
+  }
+};
+  
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
 
