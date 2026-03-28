@@ -257,7 +257,6 @@ const availableValues =
     : config.values;
 
 const filteredCollabs = config.collaborators.filter(c =>
-  c.id !== currentUser.id &&
   (allowedCollaboratorIds.length === 0 || allowedCollaboratorIds.includes(c.id)) &&
   (
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -724,10 +723,16 @@ const isImageAttachment = attachment?.mimeType?.startsWith('image/');
                         <img src={selectedCollab?.avatar} alt={selectedCollab?.name} className="w-20 h-20 rounded-[1.5rem] bg-white/10 p-1.5 border border-white/10" referrerPolicy="no-referrer" />
                         <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fa5800] rounded-full border-4 border-slate-900" />
                       </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Para</p>
-                        <p className="text-2xl font-bold tracking-tight">{selectedCollab?.name}</p>
-                      </div>
+<div>
+  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Para</p>
+  <p className="text-2xl font-bold tracking-tight">{selectedCollab?.name}</p>
+
+  {selectedCollab && selectedCollab.id === currentUser.id && (
+    <span className="inline-flex mt-2 px-3 py-1 bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-widest rounded-lg">
+      Autoevaluación
+    </span>
+  )}
+</div>
                     </div>
                     
                     <div className="flex items-center gap-6">
@@ -1193,7 +1198,7 @@ const DashboardView = ({ config, currentUser }: { config: AppConfig, currentUser
 const EvaluationsView = ({ config }: { config: AppConfig }) => {
   const [allRecognitions, setAllRecognitions] = useState<Recognition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'discarded'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'discarded' | 'self'>('pending');
 
   const fetchRecognitions = async () => {
     try {
@@ -1235,19 +1240,21 @@ const handleSetScore = async (id: number, score: 1 | 0) => {
   }
 };
 
-  const stats = {
-    sinEvaluar: allRecognitions.filter(r => r.score === undefined || r.score === null).length,
-    evaluadas: allRecognitions.filter(r => r.score === 1).length,
-    descartadas: allRecognitions.filter(r => r.score === 0).length,
-    total: allRecognitions.length
-  };
+const stats = {
+  sinEvaluar: allRecognitions.filter(r => r.score === undefined || r.score === null).length,
+  evaluadas: allRecognitions.filter(r => r.score === 1).length,
+  descartadas: allRecognitions.filter(r => r.score === 0).length,
+  autoevaluaciones: allRecognitions.filter((r: any) => r.fromId === r.toId).length,
+  total: allRecognitions.length
+};
 
-  const filteredRecognitions = allRecognitions.filter(r => {
-    if (statusFilter === 'pending') return r.score === undefined || r.score === null;
-    if (statusFilter === 'approved') return r.score === 1;
-    if (statusFilter === 'discarded') return r.score === 0;
-    return true;
-  });
+const filteredRecognitions = allRecognitions.filter((r: any) => {
+  if (statusFilter === 'pending') return r.score === undefined || r.score === null;
+  if (statusFilter === 'approved') return r.score === 1;
+  if (statusFilter === 'discarded') return r.score === 0;
+  if (statusFilter === 'self') return r.fromId === r.toId;
+  return true;
+});
 
   if (loading) {
     return <div className="p-12 text-center text-slate-400">Cargando evaluaciones...</div>;
@@ -1304,64 +1311,77 @@ const handleSetScore = async (id: number, score: 1 | 0) => {
       </div>
 
       <div className="flex flex-wrap gap-3 mb-8">
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={cn(
-            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
-            statusFilter === 'all'
-              ? "bg-slate-900 text-white shadow-lg"
-              : "bg-white text-slate-500 border border-slate-100 hover:bg-slate-50"
-          )}
-        >
-          Todos ({stats.total})
-        </button>
+  <button
+    onClick={() => setStatusFilter('all')}
+    className={cn(
+      "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+      statusFilter === 'all'
+        ? "bg-slate-900 text-white shadow-lg"
+        : "bg-white text-slate-500 border border-slate-100 hover:bg-slate-50"
+    )}
+  >
+    Todos ({stats.total})
+  </button>
 
-        <button
-          onClick={() => setStatusFilter('pending')}
-          className={cn(
-            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
-            statusFilter === 'pending'
-              ? "bg-amber-500 text-white shadow-lg"
-              : "bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100"
-          )}
-        >
-          Sin evaluar ({stats.sinEvaluar})
-        </button>
+  <button
+    onClick={() => setStatusFilter('pending')}
+    className={cn(
+      "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+      statusFilter === 'pending'
+        ? "bg-amber-500 text-white shadow-lg"
+        : "bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100"
+    )}
+  >
+    Sin evaluar ({stats.sinEvaluar})
+  </button>
 
-        <button
-          onClick={() => setStatusFilter('approved')}
-          className={cn(
-            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
-            statusFilter === 'approved'
-              ? "bg-emerald-600 text-white shadow-lg"
-              : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
-          )}
-        >
-          Evaluadas ({stats.evaluadas})
-        </button>
+  <button
+    onClick={() => setStatusFilter('approved')}
+    className={cn(
+      "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+      statusFilter === 'approved'
+        ? "bg-emerald-600 text-white shadow-lg"
+        : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
+    )}
+  >
+    Evaluadas ({stats.evaluadas})
+  </button>
 
-        <button
-          onClick={() => setStatusFilter('discarded')}
-          className={cn(
-            "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
-            statusFilter === 'discarded'
-              ? "bg-red-600 text-white shadow-lg"
-              : "bg-red-50 text-red-700 border border-red-100 hover:bg-red-100"
-          )}
-        >
-          Descartadas ({stats.descartadas})
-        </button>
-      </div>
+  <button
+    onClick={() => setStatusFilter('discarded')}
+    className={cn(
+      "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+      statusFilter === 'discarded'
+        ? "bg-red-600 text-white shadow-lg"
+        : "bg-red-50 text-red-700 border border-red-100 hover:bg-red-100"
+    )}
+  >
+    Descartadas ({stats.descartadas})
+  </button>
 
-      <div className="mb-6">
-        <p className="text-sm text-slate-500 font-medium">
-          Mostrando <span className="font-bold text-slate-900">{filteredRecognitions.length}</span> reconocimiento(s)
-          {statusFilter === 'pending' && ' pendientes de evaluación'}
-          {statusFilter === 'approved' && ' evaluados'}
-          {statusFilter === 'discarded' && ' descartados'}
-          {statusFilter === 'all' && ' en total'}
-        </p>
-      </div>
+  <button
+    onClick={() => setStatusFilter('self')}
+    className={cn(
+      "px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all",
+      statusFilter === 'self'
+        ? "bg-[#101c30] text-white shadow-lg"
+        : "bg-blue-50 text-[#101c30] border border-blue-100 hover:bg-blue-100"
+    )}
+  >
+    Autoevaluaciones ({stats.autoevaluaciones})
+  </button>
+</div>
+
+<div className="mb-6">
+  <p className="text-sm text-slate-500 font-medium">
+    Mostrando <span className="font-bold text-slate-900">{filteredRecognitions.length}</span> reconocimiento(s)
+    {statusFilter === 'pending' && ' pendientes de evaluación'}
+    {statusFilter === 'approved' && ' evaluados'}
+    {statusFilter === 'discarded' && ' descartados'}
+    {statusFilter === 'self' && ' de autoevaluación'}
+    {statusFilter === 'all' && ' en total'}
+  </p>
+</div>
 
       <div className="space-y-6">
         {filteredRecognitions.map((r: any) => {
@@ -1372,18 +1392,24 @@ const handleSetScore = async (id: number, score: 1 | 0) => {
             <Card key={r.id} className="p-8 hover:shadow-lg transition-all border border-slate-100">
               <div className="flex flex-col lg:flex-row gap-8">
                 <div className="lg:w-1/3 space-y-4">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={r.toAvatar}
-                      alt={r.toName}
-                      className="w-12 h-12 rounded-2xl bg-slate-100"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Para</p>
-                      <p className="font-bold text-slate-900">{r.toName}</p>
-                    </div>
-                  </div>
+<div className="flex items-center gap-4">
+  <img
+    src={r.toAvatar}
+    alt={r.toName}
+    className="w-12 h-12 rounded-2xl bg-slate-100"
+    referrerPolicy="no-referrer"
+  />
+  <div>
+    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Para</p>
+    <p className="font-bold text-slate-900">{r.toName}</p>
+
+    {r.fromId === r.toId && (
+      <span className="inline-flex mt-2 px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest rounded-lg">
+        Autoevaluación
+      </span>
+    )}
+  </div>
+</div>
 
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden">
