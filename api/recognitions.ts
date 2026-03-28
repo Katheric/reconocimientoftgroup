@@ -18,10 +18,9 @@ export default async function handler(req: any, res: any) {
         toId,
         valueId,
         story,
-        attachmentUrl,
+        attachmentBase64,
         attachmentFileName,
-        attachmentMimeType,
-        attachmentFileId
+        attachmentMimeType
       } = req.body;
 
       const response = await fetch(appsScriptUrl, {
@@ -33,10 +32,9 @@ export default async function handler(req: any, res: any) {
           toId,
           valueId,
           story,
-          attachmentUrl: attachmentUrl || '',
+          attachmentBase64: attachmentBase64 || '',
           attachmentFileName: attachmentFileName || '',
-          attachmentMimeType: attachmentMimeType || '',
-          attachmentFileId: attachmentFileId || ''
+          attachmentMimeType: attachmentMimeType || ''
         })
       });
 
