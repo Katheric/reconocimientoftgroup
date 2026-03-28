@@ -1019,11 +1019,12 @@ Evaluar reconocimiento
 const AdminView = ({ config, onUpdateConfig }: { config: AppConfig, onUpdateConfig: (newConfig: Partial<AppConfig>) => void }) => {
 const [activeTab, setActiveTab] = useState<'company' | 'campaign' | 'culture' | 'collaborators' | 'voting' | 'areas'>('company');
 const [companyForm, setCompanyForm] = useState(config.company);
-const [newValue, setNewValue] = useState({ name: '', emoji: '', image: '' });
+const [newValue, setNewValue] = useState({ name: '', emoji: '', image: '', imageFileId: '' } as any);
 const [editingValue, setEditingValue] = useState<Value | null>(null);
 const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAdmin: false });
 const [editingCollab, setEditingCollab] = useState<Collaborator | null>(null);
 const [newAreaName, setNewAreaName] = useState('');
+const [editingArea, setEditingArea] = useState<{ id: number; name: string } | null>(null);
 const [newPeriod, setNewPeriod] = useState({ name: '', startDate: '', endDate: '' });
 const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
 const [savingCompany, setSavingCompany] = useState(false);
@@ -1032,6 +1033,8 @@ const [importingCollabs, setImportingCollabs] = useState(false);
 const [savingArea, setSavingArea] = useState(false);
 const [savingPeriod, setSavingPeriod] = useState(false);
 const [savingValue, setSavingValue] = useState(false);
+const [uploadingLogo, setUploadingLogo] = useState(false);
+const [uploadingValueImage, setUploadingValueImage] = useState(false);
 const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1143,22 +1146,22 @@ const handleSaveCompany = async () => {
   try {
     setSavingCompany(true);
 
-    console.log('Guardando companyForm:', companyForm);
-
     const saveRes = await fetch('/api/company', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(companyForm)
     });
 
-    const saveData = await saveRes.json();
-    console.log('Respuesta al guardar empresa:', saveData);
+    if (!saveRes.ok) {
+      const err = await saveRes.json();
+      throw new Error(err.error || 'Error al guardar empresa');
+    }
 
     const res = await fetch('/api/config');
     const data = await res.json();
-    console.log('Config recargada:', data);
-
     onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'No se pudo guardar la empresa');
   } finally {
     setSavingCompany(false);
   }
@@ -1170,11 +1173,15 @@ const handleAddValue = async () => {
   try {
     setSavingValue(true);
 
-    await fetch('/api/values', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newValue)
-    });
+await fetch('/api/values', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    ...newValue,
+    image: newValue.image || '',
+    imageFileId: (newValue as any).imageFileId || ''
+  })
+});
 
     setNewValue({ name: '', emoji: '✨', image: '' });
 
@@ -1192,11 +1199,16 @@ const handleUpdateValue = async () => {
   try {
     setSavingValue(true);
 
-    await fetch('/api/values', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editingValue.id, ...editingValue })
-    });
+await fetch('/api/values', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    id: editingValue.id,
+    ...editingValue,
+    image: editingValue.image || '',
+    imageFileId: (editingValue as any).imageFileId || ''
+  })
+});
 
     setEditingValue(null);
 
@@ -1232,6 +1244,38 @@ const handleAddArea = async () => {
   try {
     setSavingArea(true);
 
+    const handleUpdateArea = async () => {
+  if (!editingArea || !editingArea.name.trim()) return;
+
+  try {
+    setSavingArea(true);
+
+    const response = await fetch('/api/areas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editingArea.id,
+        name: editingArea.name.trim()
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo actualizar el área');
+    }
+
+    setEditingArea(null);
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al editar área');
+  } finally {
+    setSavingArea(false);
+  }
+};
+
     const response = await fetch('/api/areas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1252,17 +1296,32 @@ const handleAddArea = async () => {
   }
 };
 
-  const handleDeleteArea = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar esta área?')) return;
-    await fetch('/api/areas', {
-  method: 'DELETE',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id })
-});
+const handleDeleteArea = async (id: number) => {
+  if (!confirm('¿Estás seguro de eliminar esta área?')) return;
+
+  try {
+    setSavingArea(true);
+
+    const response = await fetch('/api/areas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo eliminar el área');
+    }
+
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } catch (error: any) {
+    alert(error.message || 'Error al eliminar área');
+  } finally {
+    setSavingArea(false);
+  }
+};
 
 const handleUpdateCollab = async () => {
   if (!editingCollab) return;
@@ -1423,24 +1482,57 @@ await fetch('/api/collaborators', {
                           ) : (
                             <Building2 className="text-slate-200" size={32} />
                           )}
-                          <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                            <Upload className="text-white" size={20} />
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (evt) => {
-                                    setCompanyForm({ ...companyForm, logo: evt.target?.result as string });
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                          </label>
+
+<label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+  <Upload className="text-white" size={20} />
+  <input
+    type="file"
+    className="hidden"
+    accept="image/*"
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        setUploadingLogo(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'logos');
+        formData.append('type', 'company-logo');
+
+        if ((companyForm as any).logoFileId) {
+          formData.append('oldFileId', (companyForm as any).logoFileId);
+        }
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json();
+          throw new Error(err.error || 'Error al subir logo');
+        }
+
+        const uploadData = await uploadRes.json();
+
+        setCompanyForm({
+          ...companyForm,
+          logo: uploadData.url,
+          logoFileId: uploadData.fileId
+        } as any);
+      } catch (error: any) {
+        alert(error.message || 'No se pudo subir el logo');
+      } finally {
+        setUploadingLogo(false);
+      }
+    }}
+  />
+</label>
+
+
+                          
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-bold text-slate-900 mb-1">Subir nuevo logo</p>
@@ -1678,21 +1770,44 @@ await fetch('/api/collaborators', {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                 <div className="lg:col-span-1">
                   <Card className="p-8 sticky top-0">
-                    <h3 className="text-xl font-bold text-slate-900 mb-8">Nueva Área</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre del Área</label>
-                        <input 
-                          type="text" 
-                          placeholder="Ej: Marketing" 
-                          value={newAreaName}
-                          onChange={(e) => setNewAreaName(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                        />
-                      </div>
-<Button onClick={handleAddArea} className="w-full py-4" disabled={savingArea}>
-  <Plus size={18} /> {savingArea ? 'Guardando...' : 'Crear Área'}
-</Button>
+<h3 className="text-xl font-bold text-slate-900 mb-8">
+  {editingArea ? 'Editar Área' : 'Nueva Área'}
+</h3>
+<div className="space-y-6">
+  <div>
+    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre del Área</label>
+    <input
+      type="text"
+      placeholder="Ej: Marketing"
+      value={editingArea ? editingArea.name : newAreaName}
+      onChange={(e) =>
+        editingArea
+          ? setEditingArea({ ...editingArea, name: e.target.value })
+          : setNewAreaName(e.target.value)
+      }
+      className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+    />
+  </div>
+
+  <div className="flex gap-3">
+    {editingArea ? (
+      <>
+        <Button onClick={handleUpdateArea} className="flex-1 py-4" disabled={savingArea}>
+          {savingArea ? 'Guardando...' : 'Actualizar Área'}
+        </Button>
+        <Button onClick={() => setEditingArea(null)} variant="outline" className="py-4">
+          Cancelar
+        </Button>
+      </>
+    ) : (
+      <Button onClick={handleAddArea} className="w-full py-4" disabled={savingArea}>
+        <Plus size={18} /> {savingArea ? 'Guardando...' : 'Crear Área'}
+      </Button>
+    )}
+  </div>
+</div>
+
+                    
                     </div>
                   </Card>
                 </div>
@@ -1710,12 +1825,23 @@ await fetch('/api/collaborators', {
                           </div>
                           <span className="font-bold text-slate-900">{area.name}</span>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteArea(area.id)}
-                          className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+<div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+  <button
+    onClick={() => setEditingArea({ id: area.id, name: area.name })}
+    className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+    title="Editar"
+  >
+    <Edit2 size={16} />
+  </button>
+
+  <button
+    onClick={() => handleDeleteArea(area.id)}
+    className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+    title="Eliminar"
+  >
+    <Trash2 size={16} />
+  </button>
+</div>
                       </div>
                     ))}
                     {config.areas.length === 0 && (
@@ -1869,26 +1995,61 @@ await fetch('/api/collaborators', {
                                 <div className="p-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
                                   <Upload size={18} />
                                 </div>
-                                <input 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept="image/*" 
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const reader = new FileReader();
-                                      reader.onload = (evt) => {
-                                        const base64 = evt.target?.result as string;
-                                        if (editingValue) {
-                                          setEditingValue({ ...editingValue, image: base64 });
-                                        } else {
-                                          setNewValue({ ...newValue, image: base64 });
-                                        }
-                                      };
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }}
-                                />
+
+<input
+  type="file"
+  className="hidden"
+  accept="image/*"
+  onChange={async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingValueImage(true);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'pilares');
+      formData.append('type', 'value-image');
+
+      if (editingValue && (editingValue as any).imageFileId) {
+        formData.append('oldFileId', (editingValue as any).imageFileId);
+      }
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        throw new Error(err.error || 'Error al subir imagen del pilar');
+      }
+
+      const uploadData = await uploadRes.json();
+
+      if (editingValue) {
+        setEditingValue({
+          ...editingValue,
+          image: uploadData.url,
+          imageFileId: uploadData.fileId
+        } as any);
+      } else {
+        setNewValue({
+          ...newValue,
+          image: uploadData.url,
+          imageFileId: uploadData.fileId
+        } as any);
+      }
+    } catch (error: any) {
+      alert(error.message || 'No se pudo subir la imagen');
+    } finally {
+      setUploadingValueImage(false);
+    }
+  }}
+/>
+
+                                
                               </label>
                             </div>
                             
@@ -2124,31 +2285,62 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file || !user) return;
 
-  const reader = new FileReader();
-  reader.onload = async (evt) => {
-    try {
-      setUploadingAvatar(true);
+  try {
+    setUploadingAvatar(true);
 
-      const avatar = evt.target?.result as string;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'avatars');
+    formData.append('type', 'collaborator-avatar');
 
-      await fetch('/api/collaborators', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, avatar })
-      });
-
-      setUser({ ...user, avatar });
-
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      setConfig(data);
-    } finally {
-      setUploadingAvatar(false);
+    if ((user as any).avatarFileId) {
+      formData.append('oldFileId', (user as any).avatarFileId);
     }
-  };
 
-  reader.readAsDataURL(file);
+    const uploadRes = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json();
+      throw new Error(err.error || 'Error al subir avatar');
+    }
+
+    const uploadData = await uploadRes.json();
+
+    const saveRes = await fetch('/api/collaborators', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: user.id,
+        avatar: uploadData.url,
+        avatarFileId: uploadData.fileId
+      })
+    });
+
+    if (!saveRes.ok) {
+      const err = await saveRes.json();
+      throw new Error(err.error || 'Error al guardar avatar');
+    }
+
+    setUser({
+      ...user,
+      avatar: uploadData.url,
+      avatarFileId: uploadData.fileId
+    } as any);
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    setConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'No se pudo actualizar la foto');
+  } finally {
+    setUploadingAvatar(false);
+  }
 };
+
+  
   
   return (
     <div className="flex min-h-screen bg-white">
