@@ -267,7 +267,6 @@ const filteredCollabs = config.collaborators.filter(c =>
 );
 
 const isImageAttachment = attachment?.mimeType?.startsWith('image/');
-
   const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
