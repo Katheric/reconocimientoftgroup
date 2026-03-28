@@ -235,14 +235,38 @@ const RecognizeView = ({
 
   const attachmentInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredCollabs = config.collaborators.filter(c => 
-    c.id !== currentUser.id && 
-    (c.name.toLowerCase().includes(search.toLowerCase()) || 
-     c.email.toLowerCase().includes(search.toLowerCase()) ||
-     (c.area && c.area.toLowerCase().includes(search.toLowerCase())))
-  );
+const activePeriod: any = config.periods.find((p: any) => p.isActive === 1);
 
-  const isImageAttachment = attachment?.mimeType?.startsWith('image/');
+const allowedValueIds = activePeriod?.allowedValueIds
+  ? String(activePeriod.allowedValueIds)
+      .split(',')
+      .map((id: string) => Number(id.trim()))
+      .filter((id: number) => !isNaN(id))
+  : [];
+
+const allowedCollaboratorIds = activePeriod?.allowedCollaboratorIds
+  ? String(activePeriod.allowedCollaboratorIds)
+      .split(',')
+      .map((id: string) => Number(id.trim()))
+      .filter((id: number) => !isNaN(id))
+  : [];
+
+const availableValues =
+  allowedValueIds.length > 0
+    ? config.values.filter(v => allowedValueIds.includes(v.id))
+    : config.values;
+
+const filteredCollabs = config.collaborators.filter(c =>
+  c.id !== currentUser.id &&
+  (allowedCollaboratorIds.length === 0 || allowedCollaboratorIds.includes(c.id)) &&
+  (
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase()) ||
+    (c.area && c.area.toLowerCase().includes(search.toLowerCase()))
+  )
+);
+
+const isImageAttachment = attachment?.mimeType?.startsWith('image/');
 
   const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -437,7 +461,7 @@ const RecognizeView = ({
               exit={{ opacity: 0, y: -20 }}
               className="grid grid-cols-1 lg:grid-cols-2 gap-10"
             >
-              {config.values.map(v => (
+              {availableValues.map(v => (
                 <button
                   key={v.id}
                   onClick={() => { setSelectedValue(v); setStep(2); }}
@@ -463,8 +487,20 @@ const RecognizeView = ({
                   </div>
                 </button>
               ))}
+
+{availableValues.length === 0 && (
+  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100">
+    <Sparkles size={40} className="mx-auto text-slate-200 mb-4" />
+    <p className="text-slate-400 italic">
+      Este periodo no tiene pilares habilitados.
+    </p>
+  </div>
+)}
+              
             </motion.div>
           )}
+
+          
 
           {step === 2 && (
             <motion.div 
@@ -516,6 +552,15 @@ const RecognizeView = ({
                     </div>
                   </button>
                 ))}
+
+                {filteredCollabs.length === 0 && (
+  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100">
+    <Users size={40} className="mx-auto text-slate-200 mb-4" />
+    <p className="text-slate-400 italic">
+      No hay personas habilitadas para ser nominadas en este periodo.
+    </p>
+  </div>
+)}
               </div>
             </motion.div>
           )}
@@ -1527,7 +1572,15 @@ const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAd
 const [editingCollab, setEditingCollab] = useState<Collaborator | null>(null);
 const [newAreaName, setNewAreaName] = useState('');
 const [editingArea, setEditingArea] = useState<{ id: number; name: string } | null>(null);
-const [newPeriod, setNewPeriod] = useState({ name: '', startDate: '', endDate: '' });
+const [newPeriod, setNewPeriod] = useState({
+  name: '',
+  startDate: '',
+  endDate: '',
+  allowedValueIds: '',
+  allowedCollaboratorIds: ''
+});
+
+const [editingPeriod, setEditingPeriod] = useState<any | null>(null);
 const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
 const [savingCompany, setSavingCompany] = useState(false);
 const [savingCollab, setSavingCollab] = useState(false);
@@ -1547,7 +1600,6 @@ const fileInputRef = useRef<HTMLInputElement>(null);
     }
   }, [activeTab]);
 
-
 const handleAddPeriod = async () => {
   if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
 
@@ -1565,13 +1617,56 @@ const handleAddPeriod = async () => {
       throw new Error(err.error || 'No se pudo crear el periodo');
     }
 
-    setNewPeriod({ name: '', startDate: '', endDate: '' });
+    setNewPeriod({
+      name: '',
+      startDate: '',
+      endDate: '',
+      allowedValueIds: '',
+      allowedCollaboratorIds: ''
+    });
 
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
   } catch (error: any) {
     alert(error.message || 'Error al crear el periodo');
+  } finally {
+    setSavingPeriod(false);
+  }
+};
+
+const handleUpdatePeriod = async () => {
+  if (!editingPeriod?.id || !editingPeriod.name || !editingPeriod.startDate || !editingPeriod.endDate) return;
+
+  try {
+    setSavingPeriod(true);
+
+    const response = await fetch('/api/periods', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update',
+        id: editingPeriod.id,
+        name: editingPeriod.name,
+        startDate: editingPeriod.startDate,
+        endDate: editingPeriod.endDate,
+        allowedValueIds: editingPeriod.allowedValueIds || '',
+        allowedCollaboratorIds: editingPeriod.allowedCollaboratorIds || ''
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo actualizar el periodo');
+    }
+
+    setEditingPeriod(null);
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al actualizar el periodo');
   } finally {
     setSavingPeriod(false);
   }
@@ -1618,7 +1713,44 @@ const handleDeletePeriod = async (id: number) => {
     alert(error.message || 'Error al eliminar el periodo');
   }
 };
-  
+
+  const togglePeriodValue = (
+  currentCsv: string,
+  valueId: number
+) => {
+  const ids = currentCsv
+    ? currentCsv.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id))
+    : [];
+
+  const updated = ids.includes(valueId)
+    ? ids.filter(id => id !== valueId)
+    : [...ids, valueId];
+
+  return updated.join(',');
+};
+
+const togglePeriodCollaborator = (
+  currentCsv: string,
+  collaboratorId: number
+) => {
+  const ids = currentCsv
+    ? currentCsv.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id))
+    : [];
+
+  const updated = ids.includes(collaboratorId)
+    ? ids.filter(id => id !== collaboratorId)
+    : [...ids, collaboratorId];
+
+  return updated.join(',');
+};
+
+const isSelectedInCsv = (csv: string, id: number) => {
+  const ids = csv
+    ? csv.split(',').map((item: string) => Number(item.trim())).filter((item: number) => !isNaN(item))
+    : [];
+
+  return ids.includes(id);
+};
 
   const toggleShowResults = async () => {
     const newShowResults = companyForm.showResults === 1 ? 0 : 1;
@@ -2413,289 +2545,462 @@ setCompanyForm({
             </div>
           )}
           {activeTab === 'campaign' && (
-            <div className="space-y-12">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                <div className="lg:col-span-1">
-                  <Card className="p-8 sticky top-0">
-                    <h3 className="text-xl font-bold text-slate-900 mb-8">Nuevo Periodo</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre del Periodo</label>
-                        <input 
-                          type="text" 
-                          placeholder="Ej: Q1 2024"
-                          value={newPeriod.name}
-                          onChange={(e) => setNewPeriod({ ...newPeriod, name: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Inicio</label>
-                          <input 
-                            type="date" 
-                            value={newPeriod.startDate}
-                            onChange={(e) => setNewPeriod({ ...newPeriod, startDate: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Fin</label>
-                          <input 
-                            type="date" 
-                            value={newPeriod.endDate}
-                            onChange={(e) => setNewPeriod({ ...newPeriod, endDate: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-<Button onClick={handleAddPeriod} className="w-full py-4" disabled={savingPeriod}>
-  {savingPeriod ? 'Guardando...' : 'Crear Periodo'}
-</Button>
-                    </div>
-                  </Card>
-                </div>
-                <div className="lg:col-span-2 space-y-6">
-                  {config.periods.map(p => (
-                    <Card key={p.id} className={cn(
-                      "p-8 border transition-all",
-                      p.isActive === 1 ? "border-indigo-500 bg-indigo-50/30 shadow-lg" : "border-slate-100 hover:border-slate-200"
-                    )}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                          <div className={cn(
-                            "w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm",
-                            p.isActive === 1 ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
-                          )}>
-                            <Calendar size={28} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <h4 className="text-xl font-bold text-slate-900">{p.name}</h4>
-                              {p.isActive === 1 && <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">Activo</span>}
-                            </div>
-                            <p className="text-sm text-slate-500">{new Date(p.startDate).toLocaleDateString()} - {new Date(p.endDate).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-3">
-                          {p.isActive === 0 && (
-                            <Button onClick={() => handleActivatePeriod(p.id)} variant="secondary">Activar</Button>
-                          )}
-                          <button 
-                            onClick={() => handleDeletePeriod(p.id)}
-                            className="p-3 text-slate-300 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                  {config.periods.length === 0 && (
-                    <div className="text-center py-24 bg-white rounded-[3rem] border border-slate-100">
-                      <Calendar size={48} className="mx-auto text-slate-200 mb-4" />
-                      <p className="text-slate-400 italic">No hay periodos configurados.</p>
-                    </div>
-                  )}
-                </div>
+  <div className="space-y-12">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="lg:col-span-1">
+        <Card className="p-8 sticky top-0">
+          <h3 className="text-xl font-bold text-slate-900 mb-8">
+            {editingPeriod ? 'Editar Periodo' : 'Nuevo Periodo'}
+          </h3>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                Nombre del Periodo
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: Q2 2026"
+                value={editingPeriod ? editingPeriod.name : newPeriod.name}
+                onChange={(e) =>
+                  editingPeriod
+                    ? setEditingPeriod({ ...editingPeriod, name: e.target.value })
+                    : setNewPeriod({ ...newPeriod, name: e.target.value })
+                }
+                className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Inicio
+                </label>
+                <input
+                  type="date"
+                  value={editingPeriod ? editingPeriod.startDate : newPeriod.startDate}
+                  onChange={(e) =>
+                    editingPeriod
+                      ? setEditingPeriod({ ...editingPeriod, startDate: e.target.value })
+                      : setNewPeriod({ ...newPeriod, startDate: e.target.value })
+                  }
+                  className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                />
               </div>
 
-              {/* Integrated Culture Pillars Management */}
-              <div className="pt-16 border-t border-slate-100">
-                <div className="mb-10">
-                  <h3 className="text-3xl font-bold text-slate-900 tracking-tight">Pilares de Cultura</h3>
-                  <p className="text-slate-500 text-lg mt-1">Configura los valores, comportamientos y principios que se evaluarán en esta campaña.</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                  <div className="lg:col-span-1">
-                    <Card className="p-8 sticky top-0">
-                      <h3 className="text-xl font-bold text-slate-900 mb-8">
-                        {editingValue ? 'Editar Pilar' : 'Nuevo Pilar'}
-                      </h3>
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre</label>
-                            <input 
-                              type="text" 
-                              placeholder="Ej: Innovación"
-                              value={editingValue ? editingValue.name : newValue.name}
-                              onChange={(e) => editingValue ? setEditingValue({ ...editingValue, name: e.target.value }) : setNewValue({ ...newValue, name: e.target.value })}
-                              className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Emoji</label>
-                            <input 
-                              type="text" 
-                              placeholder="Ej: 🚀"
-                              value={editingValue ? editingValue.emoji : newValue.emoji}
-                              onChange={(e) => editingValue ? setEditingValue({ ...editingValue, emoji: e.target.value }) : setNewValue({ ...newValue, emoji: e.target.value })}
-                              className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Imagen del Pilar</label>
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex-1">
-                                <input 
-                                  type="text" 
-                                  placeholder="URL de la imagen..."
-                                  value={editingValue ? editingValue.image || '' : newValue.image || ''}
-                                  onChange={(e) => editingValue ? setEditingValue({ ...editingValue, image: e.target.value }) : setNewValue({ ...newValue, image: e.target.value })}
-                                  className="w-full px-5 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-xs"
-                                />
-                              </div>
-                              <label className="shrink-0">
-                                <div className="p-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
-                                  <Upload size={18} />
-                                </div>
-
-<input
-  type="file"
-  className="hidden"
-  accept="image/*"
-  onChange={async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingValueImage(true);
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'pilares');
-      formData.append('type', 'value-image');
-
-      if (editingValue && (editingValue as any).imageFileId) {
-        formData.append('oldFileId', (editingValue as any).imageFileId);
-      }
-
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      const rawText = await uploadRes.text();
-      let uploadData: any = null;
-
-      try {
-        uploadData = JSON.parse(rawText);
-      } catch {
-        throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
-      }
-
-      if (!uploadRes.ok) {
-        throw new Error(uploadData?.error || 'Error al subir imagen del pilar');
-      }
-
-      if (editingValue) {
-        setEditingValue({
-          ...editingValue,
-          image: uploadData.url,
-          imageFileId: uploadData.fileId
-        } as any);
-      } else {
-        setNewValue({
-          ...newValue,
-          image: uploadData.url,
-          imageFileId: uploadData.fileId
-        } as any);
-      }
-    } catch (error: any) {
-      alert(error.message || 'No se pudo subir la imagen');
-    } finally {
-      setUploadingValueImage(false);
-    }
-  }}
-/>
-                                
-                                
-                              </label>
-                            </div>
-                            
-                            <div className="h-40 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center overflow-hidden group relative">
-                              {(editingValue?.image || newValue.image) ? (
-                                <img 
-                                  src={editingValue?.image || newValue.image || ''} 
-                                  alt="Preview" 
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="text-center">
-                                  <ImageIcon className="mx-auto text-slate-300 mb-2" size={24} />
-                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Vista Previa</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-3 pt-4">
-                          {editingValue ? (
-                            <><Button onClick={handleUpdateValue} className="flex-1" disabled={savingValue}>
-  {savingValue ? 'Guardando...' : 'Guardar'}
-</Button>
-                              <Button onClick={() => setEditingValue(null)} variant="outline">Cancelar</Button>
-                            </>
-                          ) : (
-<Button onClick={handleAddValue} className="w-full" disabled={savingValue}>
-  <Plus size={18} /> {savingValue ? 'Guardando...' : 'Añadir Pilar'}
-</Button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {config.values.map(v => (
-                        <div key={v.id} className="premium-card p-0 overflow-hidden group relative">
-                          <div className="h-48 relative">
-                            <img 
-                              src={v.image || `https://picsum.photos/seed/${v.name}/800/400`} 
-                              alt={v.name} 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-slate-900/40 group-hover:bg-slate-900/60 transition-colors" />
-                            <div className="absolute inset-0 flex items-center justify-center text-6xl drop-shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                              {v.emoji}
-                            </div>
-                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                              <button 
-                                onClick={() => setEditingValue(v)}
-                                className="p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white/40 transition-colors"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteValue(v.id)}
-                                className="p-2 bg-red-500/20 backdrop-blur-md rounded-xl text-white hover:bg-red-500/40 transition-colors"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="p-8">
-                            <h4 className="font-bold text-2xl text-slate-900 mb-2 tracking-tight">{v.name}</h4>
-                            <div className="flex items-center gap-2 text-slate-400">
-                              <CheckCircle2 size={14} className="text-emerald-500" />
-                              <span className="text-xs font-bold uppercase tracking-widest">Activo</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Fin
+                </label>
+                <input
+                  type="date"
+                  value={editingPeriod ? editingPeriod.endDate : newPeriod.endDate}
+                  onChange={(e) =>
+                    editingPeriod
+                      ? setEditingPeriod({ ...editingPeriod, endDate: e.target.value })
+                      : setNewPeriod({ ...newPeriod, endDate: e.target.value })
+                  }
+                  className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                />
               </div>
             </div>
-          )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                Pilares incluidos
+              </label>
+              <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                {config.values.map(v => {
+                  const selected = editingPeriod
+                    ? isSelectedInCsv(editingPeriod.allowedValueIds || '', v.id)
+                    : isSelectedInCsv(newPeriod.allowedValueIds || '', v.id);
+
+                  return (
+                    <button
+                      type="button"
+                      key={v.id}
+                      onClick={() => {
+                        if (editingPeriod) {
+                          setEditingPeriod({
+                            ...editingPeriod,
+                            allowedValueIds: togglePeriodValue(editingPeriod.allowedValueIds || '', v.id)
+                          });
+                        } else {
+                          setNewPeriod({
+                            ...newPeriod,
+                            allowedValueIds: togglePeriodValue(newPeriod.allowedValueIds || '', v.id)
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "px-4 py-3 rounded-2xl border text-sm font-bold transition-all text-left",
+                        selected
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                          : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-white"
+                      )}
+                    >
+                      {v.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                Personas nominables
+              </label>
+              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
+                {config.collaborators.map(c => {
+                  const selected = editingPeriod
+                    ? isSelectedInCsv(editingPeriod.allowedCollaboratorIds || '', c.id)
+                    : isSelectedInCsv(newPeriod.allowedCollaboratorIds || '', c.id);
+
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={() => {
+                        if (editingPeriod) {
+                          setEditingPeriod({
+                            ...editingPeriod,
+                            allowedCollaboratorIds: togglePeriodCollaborator(editingPeriod.allowedCollaboratorIds || '', c.id)
+                          });
+                        } else {
+                          setNewPeriod({
+                            ...newPeriod,
+                            allowedCollaboratorIds: togglePeriodCollaborator(newPeriod.allowedCollaboratorIds || '', c.id)
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "px-4 py-3 rounded-2xl border text-sm font-bold transition-all text-left",
+                        selected
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-white"
+                      )}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              {editingPeriod ? (
+                <>
+                  <Button onClick={handleUpdatePeriod} className="flex-1 py-4" disabled={savingPeriod}>
+                    {savingPeriod ? 'Guardando...' : 'Actualizar Periodo'}
+                  </Button>
+                  <Button onClick={() => setEditingPeriod(null)} variant="outline" className="py-4">
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleAddPeriod} className="w-full py-4" disabled={savingPeriod}>
+                  {savingPeriod ? 'Guardando...' : 'Crear Periodo'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="lg:col-span-2 space-y-6">
+        {config.periods.map((p: any) => {
+          const valueCount = p.allowedValueIds
+            ? String(p.allowedValueIds).split(',').filter((x: string) => x.trim() !== '').length
+            : 0;
+
+          const collaboratorCount = p.allowedCollaboratorIds
+            ? String(p.allowedCollaboratorIds).split(',').filter((x: string) => x.trim() !== '').length
+            : 0;
+
+          return (
+            <Card
+              key={p.id}
+              className={cn(
+                "p-8 border transition-all",
+                p.isActive === 1 ? "border-indigo-500 bg-indigo-50/30 shadow-lg" : "border-slate-100 hover:border-slate-200"
+              )}
+            >
+              <div className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                  <div
+                    className={cn(
+                      "w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm",
+                      p.isActive === 1 ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
+                    )}
+                  >
+                    <Calendar size={28} />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <h4 className="text-xl font-bold text-slate-900">{p.name}</h4>
+                      {p.isActive === 1 && (
+                        <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                          Activo
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-slate-500">
+                      {new Date(p.startDate).toLocaleDateString()} - {new Date(p.endDate).toLocaleDateString()}
+                    </p>
+
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                        {valueCount} pilares
+                      </span>
+                      <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                        {collaboratorCount} nominables
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setEditingPeriod({
+                        ...p,
+                        allowedValueIds: p.allowedValueIds || '',
+                        allowedCollaboratorIds: p.allowedCollaboratorIds || ''
+                      })
+                    }
+                  >
+                    <Edit2 size={16} />
+                    Editar
+                  </Button>
+
+                  {p.isActive === 0 && (
+                    <Button onClick={() => handleActivatePeriod(p.id)} variant="secondary">
+                      Activar
+                    </Button>
+                  )}
+
+                  <button
+                    onClick={() => handleDeletePeriod(p.id)}
+                    className="p-3 text-slate-300 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+
+        {config.periods.length === 0 && (
+          <div className="text-center py-24 bg-white rounded-[3rem] border border-slate-100">
+            <Calendar size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-slate-400 italic">No hay periodos configurados.</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div className="pt-16 border-t border-slate-100">
+      <div className="mb-10">
+        <h3 className="text-3xl font-bold text-slate-900 tracking-tight">Pilares de Cultura</h3>
+        <p className="text-slate-500 text-lg mt-1">
+          Configura los valores, comportamientos y principios que se evaluarán en esta campaña.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="lg:col-span-1">
+          <Card className="p-8 sticky top-0">
+            <h3 className="text-xl font-bold text-slate-900 mb-8">
+              {editingValue ? 'Editar Pilar' : 'Nuevo Pilar'}
+            </h3>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Innovación"
+                    value={editingValue ? editingValue.name : newValue.name}
+                    onChange={(e) => editingValue ? setEditingValue({ ...editingValue, name: e.target.value }) : setNewValue({ ...newValue, name: e.target.value })}
+                    className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Emoji</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 🚀"
+                    value={editingValue ? editingValue.emoji : newValue.emoji}
+                    onChange={(e) => editingValue ? setEditingValue({ ...editingValue, emoji: e.target.value }) : setNewValue({ ...newValue, emoji: e.target.value })}
+                    className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Imagen del Pilar</label>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="URL de la imagen..."
+                        value={editingValue ? editingValue.image || '' : newValue.image || ''}
+                        onChange={(e) => editingValue ? setEditingValue({ ...editingValue, image: e.target.value }) : setNewValue({ ...newValue, image: e.target.value })}
+                        className="w-full px-5 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-xs"
+                      />
+                    </div>
+                    <label className="shrink-0">
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                        <Upload size={18} />
+                      </div>
+
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          try {
+                            setUploadingValueImage(true);
+
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('folder', 'pilares');
+                            formData.append('type', 'value-image');
+
+                            if (editingValue && (editingValue as any).imageFileId) {
+                              formData.append('oldFileId', (editingValue as any).imageFileId);
+                            }
+
+                            const uploadRes = await fetch('/api/upload', {
+                              method: 'POST',
+                              body: formData
+                            });
+
+                            const rawText = await uploadRes.text();
+                            let uploadData: any = null;
+
+                            try {
+                              uploadData = JSON.parse(rawText);
+                            } catch {
+                              throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+                            }
+
+                            if (!uploadRes.ok) {
+                              throw new Error(uploadData?.error || 'Error al subir imagen del pilar');
+                            }
+
+                            if (editingValue) {
+                              setEditingValue({
+                                ...editingValue,
+                                image: uploadData.url,
+                                imageFileId: uploadData.fileId
+                              } as any);
+                            } else {
+                              setNewValue({
+                                ...newValue,
+                                image: uploadData.url,
+                                imageFileId: uploadData.fileId
+                              } as any);
+                            }
+                          } catch (error: any) {
+                            alert(error.message || 'No se pudo subir la imagen');
+                          } finally {
+                            setUploadingValueImage(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="h-40 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center overflow-hidden group relative">
+                    {(editingValue?.image || newValue.image) ? (
+                      <img
+                        src={editingValue?.image || newValue.image || ''}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <ImageIcon className="mx-auto text-slate-300 mb-2" size={24} />
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Vista Previa</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                {editingValue ? (
+                  <>
+                    <Button onClick={handleUpdateValue} className="flex-1" disabled={savingValue}>
+                      {savingValue ? 'Guardando...' : 'Guardar'}
+                    </Button>
+                    <Button onClick={() => setEditingValue(null)} variant="outline">Cancelar</Button>
+                  </>
+                ) : (
+                  <Button onClick={handleAddValue} className="w-full" disabled={savingValue}>
+                    <Plus size={18} /> {savingValue ? 'Guardando...' : 'Añadir Pilar'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {config.values.map(v => (
+              <div key={v.id} className="premium-card p-0 overflow-hidden group relative">
+                <div className="h-48 relative">
+                  <img
+                    src={v.image || `https://picsum.photos/seed/${v.name}/800/400`}
+                    alt={v.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-slate-900/40 group-hover:bg-slate-900/60 transition-colors" />
+                  <div className="absolute inset-0 flex items-center justify-center text-6xl drop-shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                    {v.emoji}
+                  </div>
+                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <button
+                      onClick={() => setEditingValue(v)}
+                      className="p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white/40 transition-colors"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteValue(v.id)}
+                      className="p-2 bg-red-500/20 backdrop-blur-md rounded-xl text-white hover:bg-red-500/40 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-8">
+                  <h4 className="font-bold text-2xl text-slate-900 mb-2 tracking-tight">{v.name}</h4>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <CheckCircle2 size={14} className="text-emerald-500" />
+                    <span className="text-xs font-bold uppercase tracking-widest">Activo</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         </motion.div>
       </AnimatePresence>
 
