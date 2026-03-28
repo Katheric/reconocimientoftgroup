@@ -1118,17 +1118,6 @@ const handleDeletePeriod = async (id: number) => {
 };
   
 
-  const handleDeletePeriod = async (id: number) => {
-    await fetch('/api/periods', {
-  method: 'DELETE',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id })
-});
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
-
   const toggleShowResults = async () => {
     const newShowResults = companyForm.showResults === 1 ? 0 : 1;
     setCompanyForm({ ...companyForm, showResults: newShowResults });
@@ -1273,24 +1262,26 @@ const handleUpdateValue = async () => {
   } finally {
     setSavingValue(false);
   }
+};
 
-  const handleDeleteValue = async (id: number) => {
-    try {
-      const response = await fetch('/api/values', {
-  method: 'DELETE',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id })
-});
-      if (!response.ok) throw new Error('Failed to delete value');
-      
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      onUpdateConfig(data);
-    } catch (error) {
-      console.error('Error deleting value:', error);
-      alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
-    }
-  };
+const handleDeleteValue = async (id: number) => {
+  try {
+    const response = await fetch('/api/values', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+
+    if (!response.ok) throw new Error('Failed to delete value');
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error) {
+    console.error('Error deleting value:', error);
+    alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
+  }
+};
 
 
 const handleAddArea = async () => {
