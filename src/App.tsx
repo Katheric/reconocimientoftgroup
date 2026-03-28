@@ -1045,30 +1045,78 @@ const fileInputRef = useRef<HTMLInputElement>(null);
     }
   }, [activeTab]);
 
+
 const handleAddPeriod = async () => {
   if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
 
   try {
     setSavingPeriod(true);
 
-    await fetch('/api/periods', {
+    const response = await fetch('/api/periods', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPeriod)
     });
 
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo crear el periodo');
+    }
+
     setNewPeriod({ name: '', startDate: '', endDate: '' });
 
-  const handleActivatePeriod = async (id: number) => {
-    await fetch('/api/periods', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ action: 'activate', id })
-});
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
-  };
+  } catch (error: any) {
+    alert(error.message || 'Error al crear el periodo');
+  } finally {
+    setSavingPeriod(false);
+  }
+};
+
+const handleActivatePeriod = async (id: number) => {
+  try {
+    const response = await fetch('/api/periods', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'activate', id })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo activar el periodo');
+    }
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al activar el periodo');
+  }
+};
+
+const handleDeletePeriod = async (id: number) => {
+  try {
+    const response = await fetch('/api/periods', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo eliminar el periodo');
+    }
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al eliminar el periodo');
+  }
+};
+  
 
   const handleDeletePeriod = async (id: number) => {
     await fetch('/api/periods', {
@@ -1159,6 +1207,7 @@ const handleSaveCompany = async () => {
   }
 };
 
+
 const handleAddValue = async () => {
   if (!newValue.name) return;
 
@@ -1224,16 +1273,6 @@ const handleUpdateValue = async () => {
   } finally {
     setSavingValue(false);
   }
-};
-  
-
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  } finally {
-    setSavingValue(false);
-  }
-};
 
   const handleDeleteValue = async (id: number) => {
     try {
@@ -1789,49 +1828,49 @@ await fetch('/api/collaborators', {
           {activeTab === 'areas' && (
             <div className="space-y-12">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                <div className="lg:col-span-1">
-                  <Card className="p-8 sticky top-0">
-<h3 className="text-xl font-bold text-slate-900 mb-8">
-  {editingArea ? 'Editar Área' : 'Nueva Área'}
-</h3>
-<div className="space-y-6">
-  <div>
-    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Nombre del Área</label>
-    <input
-      type="text"
-      placeholder="Ej: Marketing"
-      value={editingArea ? editingArea.name : newAreaName}
-      onChange={(e) =>
-        editingArea
-          ? setEditingArea({ ...editingArea, name: e.target.value })
-          : setNewAreaName(e.target.value)
-      }
-      className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-    />
-  </div>
+<div className="lg:col-span-1">
+  <Card className="p-8 sticky top-0">
+    <h3 className="text-xl font-bold text-slate-900 mb-8">
+      {editingArea ? 'Editar Área' : 'Nueva Área'}
+    </h3>
 
-  <div className="flex gap-3">
-    {editingArea ? (
-      <>
-        <Button onClick={handleUpdateArea} className="flex-1 py-4" disabled={savingArea}>
-          {savingArea ? 'Guardando...' : 'Actualizar Área'}
-        </Button>
-        <Button onClick={() => setEditingArea(null)} variant="outline" className="py-4">
-          Cancelar
-        </Button>
-      </>
-    ) : (
-      <Button onClick={handleAddArea} className="w-full py-4" disabled={savingArea}>
-        <Plus size={18} /> {savingArea ? 'Guardando...' : 'Crear Área'}
-      </Button>
-    )}
-  </div>
+    <div className="space-y-6">
+      <div>
+        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+          Nombre del Área
+        </label>
+        <input
+          type="text"
+          placeholder="Ej: Marketing"
+          value={editingArea ? editingArea.name : newAreaName}
+          onChange={(e) =>
+            editingArea
+              ? setEditingArea({ ...editingArea, name: e.target.value })
+              : setNewAreaName(e.target.value)
+          }
+          className="w-full px-5 py-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+        />
+      </div>
+
+      <div className="flex gap-3">
+        {editingArea ? (
+          <>
+            <Button onClick={handleUpdateArea} className="flex-1 py-4" disabled={savingArea}>
+              {savingArea ? 'Guardando...' : 'Actualizar Área'}
+            </Button>
+            <Button onClick={() => setEditingArea(null)} variant="outline" className="py-4">
+              Cancelar
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleAddArea} className="w-full py-4" disabled={savingArea}>
+            <Plus size={18} /> {savingArea ? 'Guardando...' : 'Crear Área'}
+          </Button>
+        )}
+      </div>
+    </div>
+  </Card>
 </div>
-
-                    
-                    </div>
-                  </Card>
-                </div>
 
                 <div className="lg:col-span-2">
                   <div className="flex items-center justify-between mb-8">
