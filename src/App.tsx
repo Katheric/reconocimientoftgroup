@@ -983,9 +983,9 @@ Evaluar reconocimiento
   onClick={() => handleSetScore(r.id, 0)}
   className={cn(
     "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
-    r.score === -1
-      ? "bg-red-100 text-red-600"
-      : "bg-slate-50 text-slate-400 hover:bg-red-50"
+r.score === 0
+  ? "bg-red-100 text-red-600"
+  : "bg-slate-50 text-slate-400 hover:bg-red-50"
   )}
 >
   <X size={16} />
@@ -1555,24 +1555,29 @@ await fetch('/api/collaborators', {
         if ((companyForm as any).logoFileId) {
           formData.append('oldFileId', (companyForm as any).logoFileId);
         }
+const uploadRes = await fetch('/api/upload', {
+  method: 'POST',
+  body: formData
+});
 
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
+const rawText = await uploadRes.text();
+let uploadData: any = null;
 
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json();
-          throw new Error(err.error || 'Error al subir logo');
-        }
+try {
+  uploadData = JSON.parse(rawText);
+} catch {
+  throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+}
 
-        const uploadData = await uploadRes.json();
+if (!uploadRes.ok) {
+  throw new Error(uploadData?.error || 'Error al subir logo');
+}
 
-        setCompanyForm({
-          ...companyForm,
-          logo: uploadData.url,
-          logoFileId: uploadData.fileId
-        } as any);
+setCompanyForm({
+  ...companyForm,
+  logo: uploadData.url,
+  logoFileId: uploadData.fileId
+} as any);
       } catch (error: any) {
         alert(error.message || 'No se pudo subir el logo');
       } finally {
@@ -2066,26 +2071,39 @@ await fetch('/api/collaborators', {
       if (editingValue && (editingValue as any).imageFileId) {
         formData.append('oldFileId', (editingValue as any).imageFileId);
       }
+const uploadRes = await fetch('/api/upload', {
+  method: 'POST',
+  body: formData
+});
 
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
+const rawText = await uploadRes.text();
+let uploadData: any = null;
 
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(err.error || 'Error al subir imagen del pilar');
-      }
+try {
+  uploadData = JSON.parse(rawText);
+} catch {
+  throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+}
 
-      const uploadData = await uploadRes.json();
+if (!uploadRes.ok) {
+  throw new Error(uploadData?.error || 'Error al subir imagen del pilar');
+}
 
-      if (editingValue) {
-        setEditingValue({
-          ...editingValue,
-          image: uploadData.url,
-          imageFileId: uploadData.fileId
-        } as any);
-      } else {
+if (editingValue) {
+  setEditingValue({
+    ...editingValue,
+    image: uploadData.url,
+    imageFileId: uploadData.fileId
+  } as any);
+} else {
+  setNewValue({
+    ...newValue,
+    image: uploadData.url,
+    imageFileId: uploadData.fileId
+  } as any);
+}
+        
+      else {
         setNewValue({
           ...newValue,
           image: uploadData.url,
@@ -2348,27 +2366,34 @@ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       formData.append('oldFileId', (user as any).avatarFileId);
     }
 
-    const uploadRes = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+const uploadRes = await fetch('/api/upload', {
+  method: 'POST',
+  body: formData
+});
 
-    if (!uploadRes.ok) {
-      const err = await uploadRes.json();
-      throw new Error(err.error || 'Error al subir avatar');
-    }
+const rawText = await uploadRes.text();
+let uploadData: any = null;
 
-    const uploadData = await uploadRes.json();
+try {
+  uploadData = JSON.parse(rawText);
+} catch {
+  throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+}
 
-    const saveRes = await fetch('/api/collaborators', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: user.id,
-        avatar: uploadData.url,
-        avatarFileId: uploadData.fileId
-      })
-    });
+if (!uploadRes.ok) {
+  throw new Error(uploadData?.error || 'Error al subir avatar');
+}
+
+const saveRes = await fetch('/api/collaborators', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    id: user.id,
+    avatar: uploadData.url,
+    avatarFileId: uploadData.fileId
+  })
+});
+    
 
     if (!saveRes.ok) {
       const err = await saveRes.json();
