@@ -904,7 +904,7 @@ const EvaluationsView = ({ config }: { config: AppConfig }) => {
     fetchRecognitions();
   }, []);
 
-const handleSetScore = async (id: number, score: 1 | -1) => {
+const handleSetScore = async (id: number, score: 1 | 0) => {
   try {
     const response = await fetch('/api/recognitions', {
       method: 'PATCH',
@@ -980,7 +980,7 @@ Evaluar reconocimiento
 </button>
 
 <button
-  onClick={() => handleSetScore(r.id, -1)}
+  onClick={() => handleSetScore(r.id, 0)}
   className={cn(
     "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
     r.score === -1
@@ -1173,21 +1173,28 @@ const handleAddValue = async () => {
   try {
     setSavingValue(true);
 
-await fetch('/api/values', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    ...newValue,
-    image: newValue.image || '',
-    imageFileId: (newValue as any).imageFileId || ''
-  })
-});
+    const response = await fetch('/api/values', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...newValue,
+        image: newValue.image || '',
+        imageFileId: (newValue as any).imageFileId || ''
+      })
+    });
 
-    setNewValue({ name: '', emoji: '✨', image: '' });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo crear el pilar');
+    }
+
+    setNewValue({ name: '', emoji: '✨', image: '', imageFileId: '' } as any);
 
     const res = await fetch('/api/config');
     const data = await res.json();
     onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al crear el pilar');
   } finally {
     setSavingValue(false);
   }
@@ -1199,18 +1206,34 @@ const handleUpdateValue = async () => {
   try {
     setSavingValue(true);
 
-await fetch('/api/values', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    id: editingValue.id,
-    ...editingValue,
-    image: editingValue.image || '',
-    imageFileId: (editingValue as any).imageFileId || ''
-  })
-});
+    const response = await fetch('/api/values', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editingValue.id,
+        ...editingValue,
+        image: editingValue.image || '',
+        imageFileId: (editingValue as any).imageFileId || ''
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo actualizar el pilar');
+    }
 
     setEditingValue(null);
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al actualizar el pilar');
+  } finally {
+    setSavingValue(false);
+  }
+};
+  
 
     const res = await fetch('/api/config');
     const data = await res.json();
@@ -1238,13 +1261,37 @@ await fetch('/api/values', {
     }
   };
 
+
 const handleAddArea = async () => {
   if (!newAreaName.trim()) return;
 
   try {
     setSavingArea(true);
 
-    const handleUpdateArea = async () => {
+    const response = await fetch('/api/areas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newAreaName.trim() })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'No se pudo crear el área');
+    }
+
+    setNewAreaName('');
+
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  } catch (error: any) {
+    alert(error.message || 'Error al crear área');
+  } finally {
+    setSavingArea(false);
+  }
+};
+
+const handleUpdateArea = async () => {
   if (!editingArea || !editingArea.name.trim()) return;
 
   try {
@@ -1276,26 +1323,7 @@ const handleAddArea = async () => {
   }
 };
 
-    const response = await fetch('/api/areas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newAreaName.trim() })
-    });
-
-    if (response.ok) {
-      setNewAreaName('');
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      onUpdateConfig(data);
-    } else {
-      const err = await response.json();
-      alert(err.error);
-    }
-  } finally {
-    setSavingArea(false);
-  }
-};
-
+  
 const handleDeleteArea = async (id: number) => {
   if (!confirm('¿Estás seguro de eliminar esta área?')) return;
 
