@@ -210,10 +210,10 @@ const RecognizeView = ({
     valueId: number, 
     story: string,
     attachment?: {
-      url: string;
+      base64: string;
       fileName: string;
       mimeType: string;
-      fileId?: string;
+      previewUrl?: string;
     } | null
   ) => Promise<boolean> 
 }) => {
@@ -224,15 +224,15 @@ const RecognizeView = ({
   const [search, setSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [readingAttachment, setReadingAttachment] = useState(false);
 
   const [attachment, setAttachment] = useState<{
-    url: string;
+    base64: string;
     fileName: string;
     mimeType: string;
-    fileId?: string;
+    previewUrl?: string;
   } | null>(null);
 
-  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const filteredCollabs = config.collaborators.filter(c => 
@@ -244,61 +244,78 @@ const RecognizeView = ({
 
   const isImageAttachment = attachment?.mimeType?.startsWith('image/');
 
-  const handleAttachmentUpload = async (file: File) => {
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const result = reader.result;
+        if (!result || typeof result !== 'string') {
+          reject(new Error('No se pudo leer el archivo'));
+          return;
+        }
+
+        const base64 = result.includes(',')
+          ? result.split(',')[1]
+          : result;
+
+        resolve(base64);
+      };
+
+      reader.onerror = () => reject(new Error('Error leyendo el archivo'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAttachmentSelect = async (file: File) => {
     try {
-      setUploadingAttachment(true);
+      setReadingAttachment(true);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'recognitions');
-      formData.append('type', 'recognition-attachment');
+      const allowedMimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'application/pdf'
+      ];
 
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      const rawText = await uploadRes.text();
-      let uploadData: any = null;
-
-      try {
-        uploadData = JSON.parse(rawText);
-      } catch {
-        throw new Error(rawText || 'El servidor devolvió una respuesta no válida');
+      if (!allowedMimeTypes.includes(file.type)) {
+        alert('Solo se permiten imágenes o archivos PDF.');
+        return;
       }
 
-      if (!uploadRes.ok) {
-        throw new Error(uploadData?.error || 'No se pudo subir el archivo');
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('El archivo no debe exceder 10 MB.');
+        return;
       }
+
+      const base64 = await readFileAsBase64(file);
+      const previewUrl = file.type.startsWith('image/')
+        ? URL.createObjectURL(file)
+        : '';
 
       setAttachment({
-        url: uploadData.url,
+        base64,
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
-        fileId: uploadData.fileId
+        previewUrl
       });
     } catch (error: any) {
-      alert(error.message || 'Error al subir el archivo');
+      alert(error.message || 'No se pudo procesar el archivo');
     } finally {
-      setUploadingAttachment(false);
+      setReadingAttachment(false);
     }
   };
 
   const handleNominate = async () => {
-    console.log('handleNominate called', { 
-      selectedValue, 
-      selectedCollab, 
-      storyLength: story.length,
-      attachment 
-    });
-
     if (!selectedValue || !selectedCollab || !story.trim()) {
-      console.warn('Missing required fields for nomination');
       return;
     }
 
     try {
       setIsSubmitting(true);
+
       const success = await onNominate(
         selectedCollab.id,
         selectedValue.id,
@@ -354,14 +371,20 @@ const RecognizeView = ({
         <p className="text-slate-500 text-xl max-w-md mx-auto mb-12">
           Has compartido una historia increíble sobre {selectedCollab?.name}. Esto fortalece nuestra cultura.
         </p>
-        <Button onClick={() => {
-          setStep(1);
-          setSelectedValue(null);
-          setSelectedCollab(null);
-          setStory('');
-          setAttachment(null);
-          setShowSuccess(false);
-        }} className="px-12 py-4 text-lg">
+        <Button
+          onClick={() => {
+            if (attachment?.previewUrl) {
+              URL.revokeObjectURL(attachment.previewUrl);
+            }
+            setStep(1);
+            setSelectedValue(null);
+            setSelectedCollab(null);
+            setStory('');
+            setAttachment(null);
+            setShowSuccess(false);
+          }}
+          className="px-12 py-4 text-lg"
+        >
           Hacer otro reconocimiento
         </Button>
       </div>
@@ -540,7 +563,7 @@ const RecognizeView = ({
                               Evidencia adjunta
                             </p>
                             <p className="text-sm text-slate-500">
-                              Puedes adjuntar una imagen o un archivo para respaldar la historia.
+                              Puedes adjuntar una imagen o un PDF.
                             </p>
                           </div>
 
@@ -548,10 +571,10 @@ const RecognizeView = ({
                             ref={attachmentInputRef}
                             type="file"
                             className="hidden"
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                            accept="image/*,.pdf"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleAttachmentUpload(file);
+                              if (file) handleAttachmentSelect(file);
                             }}
                           />
 
@@ -559,10 +582,10 @@ const RecognizeView = ({
                             type="button"
                             variant="outline"
                             onClick={() => attachmentInputRef.current?.click()}
-                            disabled={uploadingAttachment}
+                            disabled={readingAttachment}
                           >
                             <Paperclip size={16} />
-                            {uploadingAttachment ? 'Subiendo...' : 'Adjuntar archivo'}
+                            {readingAttachment ? 'Procesando...' : 'Adjuntar archivo'}
                           </Button>
                         </div>
 
@@ -571,10 +594,9 @@ const RecognizeView = ({
                             {isImageAttachment ? (
                               <div className="rounded-[1.5rem] overflow-hidden border border-slate-200 bg-white">
                                 <img
-                                  src={attachment.url}
+                                  src={attachment.previewUrl}
                                   alt={attachment.fileName}
                                   className="w-full max-h-72 object-cover"
-                                  referrerPolicy="no-referrer"
                                 />
                               </div>
                             ) : (
@@ -590,28 +612,24 @@ const RecognizeView = ({
                             )}
 
                             <div className="flex gap-3 flex-wrap">
-                              <a
-                                href={attachment.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 text-white hover:opacity-90 transition-all"
-                              >
-                                <Eye size={14} />
-                                Previsualizar
-                              </a>
-
-                              <a
-                                href={attachment.url}
-                                download={attachment.fileName}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all"
-                              >
-                                <Download size={14} />
-                                Descargar
-                              </a>
+                              {isImageAttachment && attachment.previewUrl && (
+                                <a
+                                  href={attachment.previewUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 text-white hover:opacity-90 transition-all"
+                                >
+                                  <Eye size={14} />
+                                  Previsualizar
+                                </a>
+                              )}
 
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (attachment?.previewUrl) {
+                                    URL.revokeObjectURL(attachment.previewUrl);
+                                  }
                                   setAttachment(null);
                                   if (attachmentInputRef.current) {
                                     attachmentInputRef.current.value = '';
@@ -626,7 +644,7 @@ const RecognizeView = ({
                           </div>
                         )}
 
-                        {!attachment && !uploadingAttachment && (
+                        {!attachment && !readingAttachment && (
                           <div className="border border-dashed border-slate-200 rounded-[1.5rem] p-6 text-center text-slate-400">
                             <Paperclip className="mx-auto mb-3" size={22} />
                             <p className="text-sm font-medium">
@@ -643,7 +661,7 @@ const RecognizeView = ({
                   <Button 
                     type="button"
                     onClick={handleNominate}
-                    disabled={!story.trim() || isSubmitting || uploadingAttachment}
+                    disabled={!story.trim() || isSubmitting || readingAttachment}
                     className="flex-1 py-6 text-xl rounded-[2rem] shadow-2xl shadow-[#fa5800]/20"
                     variant="secondary"
                   >
@@ -654,7 +672,9 @@ const RecognizeView = ({
 
               <div className="lg:col-span-4 space-y-8">
                 <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mb-12">Resumen del Reconocimiento</p>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mb-12">
+                    Resumen del Reconocimiento
+                  </p>
                   
                   <div className="space-y-10 relative z-10">
                     <div className="flex items-center gap-6">
@@ -688,10 +708,9 @@ const RecognizeView = ({
                           {isImageAttachment ? (
                             <div className="rounded-[1.5rem] overflow-hidden border border-white/10">
                               <img
-                                src={attachment.url}
+                                src={attachment.previewUrl}
                                 alt={attachment.fileName}
                                 className="w-full h-44 object-cover"
-                                referrerPolicy="no-referrer"
                               />
                             </div>
                           ) : (
@@ -2772,22 +2791,13 @@ const handleNominate = async (
   valueId: number,
   story: string,
   attachment?: {
-    url: string;
+    base64: string;
     fileName: string;
     mimeType: string;
-    fileId?: string;
+    previewUrl?: string;
   } | null
 ) => {
-  console.log('Parent handleNominate called', {
-    toId,
-    valueId,
-    storyLength: story.length,
-    userId: user?.id,
-    attachment
-  });
-
   if (!user) {
-    console.warn('No user logged in during nomination');
     return false;
   }
 
@@ -2800,19 +2810,16 @@ const handleNominate = async (
         toId,
         valueId,
         story,
-        attachmentUrl: attachment?.url || '',
+        attachmentBase64: attachment?.base64 || '',
         attachmentFileName: attachment?.fileName || '',
-        attachmentMimeType: attachment?.mimeType || '',
-        attachmentFileId: attachment?.fileId || ''
+        attachmentMimeType: attachment?.mimeType || ''
       })
     });
 
-    console.log('API response status:', response.status);
+    const data = await response.json();
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('API error data:', errorData);
-      alert(errorData.error || 'Error al enviar reconocimiento');
+      alert(data.error || 'Error al enviar reconocimiento');
       return false;
     }
 
@@ -2823,8 +2830,7 @@ const handleNominate = async (
     alert('Error de conexión al enviar reconocimiento');
     return false;
   }
-};
-  
+};  
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
 
