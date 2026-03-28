@@ -7,42 +7,79 @@ export default async function handler(req: any, res: any) {
 
   try {
     if (req.method === 'POST') {
+      const {
+        name,
+        startDate,
+        endDate,
+        allowedValueIds,
+        allowedCollaboratorIds
+      } = req.body;
+
       const response = await fetch(appsScriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'createPeriod',
-          payload: req.body
+          payload: {
+            name,
+            startDate,
+            endDate,
+            allowedValueIds: allowedValueIds || '',
+            allowedCollaboratorIds: allowedCollaboratorIds || ''
+          }
         })
       });
 
       const data = await response.json();
+
       if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo crear el periodo' });
+        return res.status(400).json({
+          error: data.error || 'No se pudo crear el periodo'
+        });
       }
+
       return res.status(200).json(data);
     }
 
     if (req.method === 'PATCH') {
-      const { action, id } = req.body;
+      const { action, id, ...rest } = req.body;
 
-      if (action !== 'activate') {
-        return res.status(400).json({ error: 'Acción PATCH no válida' });
+      let payload: any = null;
+      let appsScriptAction = '';
+
+      if (action === 'activate') {
+        appsScriptAction = 'activatePeriod';
+      } else if (action === 'update') {
+        appsScriptAction = 'updatePeriod';
+        payload = {
+          name: rest.name,
+          startDate: rest.startDate,
+          endDate: rest.endDate,
+          allowedValueIds: rest.allowedValueIds || '',
+          allowedCollaboratorIds: rest.allowedCollaboratorIds || ''
+        };
+      } else {
+        return res.status(400).json({ error: 'Acción inválida' });
       }
 
       const response = await fetch(appsScriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'activatePeriod',
-          id: Number(id)
-        })
+        body: JSON.stringify(
+          payload
+            ? { action: appsScriptAction, id, payload }
+            : { action: appsScriptAction, id }
+        )
       });
 
       const data = await response.json();
+
       if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo activar el periodo' });
+        return res.status(400).json({
+          error: data.error || 'No se pudo actualizar el periodo'
+        });
       }
+
       return res.status(200).json(data);
     }
 
@@ -54,14 +91,18 @@ export default async function handler(req: any, res: any) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'deletePeriod',
-          id: Number(id)
+          id
         })
       });
 
       const data = await response.json();
+
       if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo eliminar el periodo' });
+        return res.status(400).json({
+          error: data.error || 'No se pudo eliminar el periodo'
+        });
       }
+
       return res.status(200).json(data);
     }
 
