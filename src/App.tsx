@@ -2640,30 +2640,30 @@ setCompanyForm({
 
                   return (
                     <button
-                      type="button"
-                      key={v.id}
-                      onClick={() => {
-                        if (editingPeriod) {
-setEditingPeriod({
-  ...editingPeriod,
-  allowedCollaboratorIds: togglePeriodCollaborator(editingPeriod.allowedCollaboratorIds || '', c.id)
-});
-                        } else {
-                          setNewPeriod({
-                            ...newPeriod,
-                            allowedValueIds: togglePeriodValue(newPeriod.allowedValueIds || '', v.id)
-                          });
-                        }
-                      }}
-                      className={cn(
-                        "px-4 py-3 rounded-2xl border text-sm font-bold transition-all text-left",
-                        selected
-                          ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                          : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-white"
-                      )}
-                    >
-                      {v.name}
-                    </button>
+  type="button"
+  key={v.id}
+  onClick={() => {
+    if (editingPeriod) {
+      setEditingPeriod({
+        ...editingPeriod,
+        allowedValueIds: togglePeriodValue(editingPeriod.allowedValueIds || '', v.id)
+      });
+    } else {
+      setNewPeriod({
+        ...newPeriod,
+        allowedValueIds: togglePeriodValue(newPeriod.allowedValueIds || '', v.id)
+      });
+    }
+  }}
+  className={cn(
+    "px-4 py-3 rounded-2xl border text-sm font-bold transition-all text-left",
+    selected
+      ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+      : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-white"
+  )}
+>
+  {v.name}
+</button>
                   );
                 })}
               </div>
