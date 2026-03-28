@@ -17,9 +17,37 @@ export default async function handler(req: any, res: any) {
       });
 
       const data = await response.json();
-      if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo crear área' });
+
+      if (!response.ok || !data.success) {
+        return res.status(400).json({
+          error: data.error || 'No se pudo crear área'
+        });
       }
+
+      return res.status(200).json(data);
+    }
+
+    if (req.method === 'PATCH') {
+      const { id, name } = req.body;
+
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updateArea',
+          id: Number(id),
+          payload: { name }
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return res.status(400).json({
+          error: data.error || 'No se pudo actualizar área'
+        });
+      }
+
       return res.status(200).json(data);
     }
 
@@ -36,9 +64,13 @@ export default async function handler(req: any, res: any) {
       });
 
       const data = await response.json();
-      if (!data.success) {
-        return res.status(400).json({ error: data.error || 'No se pudo eliminar área' });
+
+      if (!response.ok || !data.success) {
+        return res.status(400).json({
+          error: data.error || 'No se pudo eliminar área'
+        });
       }
+
       return res.status(200).json(data);
     }
 
