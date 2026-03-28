@@ -358,8 +358,6 @@ const isImageAttachment = attachment?.mimeType?.startsWith('image/');
     }
   };
 
-  const activePeriod = config.periods.find(p => p.isActive === 1);
-
   if (config.company.votingOpen === 0 || !activePeriod) {
     return (
       <div className="h-full flex items-center justify-center p-12">
