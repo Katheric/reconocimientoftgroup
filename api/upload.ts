@@ -42,8 +42,8 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           action: 'uploadImage',
           payload: {
-            fileName: file.originalFilename,
-            mimeType: file.mimetype,
+            fileName: file.originalFilename || `upload_${Date.now()}`,
+            mimeType: file.mimetype || 'application/octet-stream',
             base64,
             folder: Array.isArray(fields.folder) ? fields.folder[0] : fields.folder || '',
             type: Array.isArray(fields.type) ? fields.type[0] : fields.type || '',
@@ -52,7 +52,17 @@ export default async function handler(req: any, res: any) {
         })
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: any = null;
+
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        console.error('Respuesta no JSON desde Apps Script:', rawText);
+        return res.status(502).json({
+          error: rawText || 'Apps Script devolvió una respuesta no válida'
+        });
+      }
 
       if (!response.ok || !data.success) {
         return res.status(400).json({
@@ -65,9 +75,11 @@ export default async function handler(req: any, res: any) {
         url: data.url,
         fileId: data.fileId
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error en /api/upload:', error);
-      return res.status(500).json({ error: 'Error interno al subir archivo' });
+      return res.status(500).json({
+        error: error?.message || 'Error interno al subir archivo'
+      });
     }
   });
 }
