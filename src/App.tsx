@@ -2644,10 +2644,10 @@ setCompanyForm({
                       key={v.id}
                       onClick={() => {
                         if (editingPeriod) {
-                          setEditingPeriod({
-                            ...editingPeriod,
-                            allowedValueIds: togglePeriodValue(editingPeriod.allowedValueIds || '', v.id)
-                          });
+setEditingPeriod({
+  ...editingPeriod,
+  allowedCollaboratorIds: togglePeriodCollaborator(editingPeriod.allowedCollaboratorIds || '', c.id)
+});
                         } else {
                           setNewPeriod({
                             ...newPeriod,
@@ -2690,10 +2690,10 @@ setCompanyForm({
                             allowedCollaboratorIds: togglePeriodCollaborator(editingPeriod.allowedCollaboratorIds || '', c.id)
                           });
                         } else {
-                          setNewPeriod({
-                            ...newPeriod,
-                            allowedCollaboratorIds: togglePeriodCollaborator(newPeriod.allowedCollaboratorIds || '', c.id)
-                          });
+setNewPeriod({
+  ...newPeriod,
+  allowedCollaboratorIds: togglePeriodCollaborator(newPeriod.allowedCollaboratorIds || '', c.id)
+});
                         }
                       }}
                       className={cn(
