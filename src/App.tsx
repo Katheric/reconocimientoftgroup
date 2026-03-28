@@ -340,14 +340,6 @@ const filteredCollabs = config.collaborators.filter(c => {
   return linkedIds.has(c.id);
 });
 
-  const refreshConfig = async () => {
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  onUpdateConfig(data);
-  return data;
-};
-
-
   const handleNominate = async () => {
     console.log('handleNominate called', { selectedValue, selectedCollab, storyLength: story.length, attachmentsCount: attachments.length });
     if (!selectedValue || !selectedCollab || !story.trim()) {
@@ -1539,6 +1531,9 @@ const tabs = [
 const AdminView = ({ config, onUpdateConfig, currentUser }: { config: AppConfig, onUpdateConfig: (newConfig: Partial<AppConfig>) => void, currentUser: Collaborator }) => {
   const [activeTab, setActiveTab] = useState<'company' | 'campaign' | 'culture' | 'collaborators' | 'voting' | 'areas'>('company');
   const [companyForm, setCompanyForm] = useState(config.company);
+  useEffect(() => {
+  setCompanyForm(config.company);
+}, [config.company]);
   const [newValue, setNewValue] = useState({ name: '', icon: 'Sparkles', image: '' });
   const [editingValue, setEditingValue] = useState<Value | null>(null);
   const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAdmin: false });
@@ -1550,6 +1545,12 @@ const AdminView = ({ config, onUpdateConfig, currentUser }: { config: AppConfig,
   const [deletingCollabId, setDeletingCollabId] = useState<number | null>(null);
   const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const refreshConfig = async () => {
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  onUpdateConfig(data);
+  return data;
+};
 
 useEffect(() => {
   if (activeTab === 'voting') {
@@ -1611,18 +1612,10 @@ const handleActivatePeriod = async (id: number) => {
   await refreshConfig();
 };
 
-  const handleUpdatePeriod = async () => {
-    if (!editingPeriod) return;
-    await fetch(`/api/periods/${editingPeriod.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingPeriod)
-    });
-    setEditingPeriod(null);
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    onUpdateConfig(data);
-  };
+
+const handleUpdatePeriod = async () => {
+  alert('Editar periodos aún no está soportado por el backend.');
+};
 
 const handleDeletePeriod = async (id: number) => {
   await fetch('/api/periods', {
@@ -1831,23 +1824,11 @@ const handleDeleteArea = async (id: number) => {
   await refreshConfig();
 };
 
-  const handleUpdateArea = async () => {
-    if (!editingArea || !editingArea.name.trim()) return;
-    const response = await fetch(`/api/areas/${editingArea.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editingArea.name.trim() })
-    });
-    if (response.ok) {
-      setEditingArea(null);
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      onUpdateConfig(data);
-    } else {
-      const err = await response.json();
-      alert(err.error);
-    }
-  };
+
+const handleUpdateArea = async () => {
+  alert('Editar áreas aún no está soportado por el backend.');
+};
+  
 
 const handleUpdateCollab = async () => {
   if (!editingCollab) return;
@@ -1865,10 +1846,9 @@ const handleUpdateCollab = async () => {
   });
 
   setEditingCollab(null);
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  onUpdateConfig(data);
+  await refreshConfig();
 };
+  
 
 const handleAddCollab = async () => {
   if (!newCollab.name || !newCollab.email) return;
@@ -1891,6 +1871,7 @@ const handleAddCollab = async () => {
   await refreshConfig();
 };
 
+
 const handleDeleteCollab = async () => {
   if (deletingCollabId === null) return;
 
@@ -1901,10 +1882,9 @@ const handleDeleteCollab = async () => {
   });
 
   setDeletingCollabId(null);
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  onUpdateConfig(data);
+  await refreshConfig();
 };
+  
 
 const toggleAdmin = async (id: number, current: number) => {
   await fetch('/api/collaborators', {
@@ -1916,22 +1896,32 @@ const toggleAdmin = async (id: number, current: number) => {
     })
   });
 
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  onUpdateConfig(data);
+  await refreshConfig();
 };
 
-  const toggleVoting = async () => {
-    const newState = companyForm.votingOpen === 1 ? 0 : 1;
-    const updated = { ...companyForm, votingOpen: newState };
-    setCompanyForm(updated);
-    await fetch('/api/company', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated)
-    });
-    onUpdateConfig({ company: updated });
-  };
+
+const toggleVoting = async () => {
+  const newState = companyForm.votingOpen === 1 ? 0 : 1;
+  const updated = { ...companyForm, votingOpen: newState };
+
+  setCompanyForm(updated);
+  onUpdateConfig({ company: updated });
+
+  const response = await fetch('/api/company', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updated)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || 'No se pudo actualizar el estado de votaciones');
+    return;
+  }
+
+  await refreshConfig();
+};
 
   return (
     <div className="p-12 max-w-6xl mx-auto overflow-y-auto custom-scrollbar h-full">
@@ -2979,29 +2969,20 @@ const handleNominate = async (toId: number, valueId: number, story: string, atta
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-white">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const avatar = evt.target?.result as string;
-await fetch('/api/collaborators', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    id: user.id,
-    avatar
-  })
-});
-      setUser({ ...user, avatar });
-      // Refresh config to update avatar everywhere
-      const res = await fetch('/api/config');
-      const data = await res.json();
-      setConfig(data);
-    };
-    reader.readAsDataURL(file);
-  };
+
+const toggleAdmin = async (id: number, current: number) => {
+  await fetch('/api/collaborators', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id,
+      isAdmin: current === 1 ? 0 : 1
+    })
+  });
+
+  await refreshConfig();
+};
+  
 
   return (
     <div className="flex min-h-screen bg-white">
