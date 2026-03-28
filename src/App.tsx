@@ -277,9 +277,8 @@ const LandingView = ({ config, onLogin }: { config: AppConfig | null, onLogin: (
             </Button>
             <div className="pt-8 border-t border-white">
               <p className="text-xs text-slate-400 leading-relaxed">
-  <div className="py-10 text-[14px] text-slate-400 font-medium text-center border-t border-slate-100 mt-auto">
-    Una herramienta elaborada por <span className="text-[#fa5800] font-bold">FT Group</span>
-  </div>
+                <span className="font-bold text-slate-900">Acceso Master:</span><br />
+                <span className="font-mono">kath@metodosft.com</span>
               </p>
             </div>
           </div>
@@ -339,6 +338,7 @@ const filteredCollabs = config.collaborators.filter(c => {
   if (linkedIds.size === 0) return true;
   return linkedIds.has(c.id);
 });
+
 
   const handleNominate = async () => {
     console.log('handleNominate called', { selectedValue, selectedCollab, storyLength: story.length, attachmentsCount: attachments.length });
@@ -1531,9 +1531,6 @@ const tabs = [
 const AdminView = ({ config, onUpdateConfig, currentUser }: { config: AppConfig, onUpdateConfig: (newConfig: Partial<AppConfig>) => void, currentUser: Collaborator }) => {
   const [activeTab, setActiveTab] = useState<'company' | 'campaign' | 'culture' | 'collaborators' | 'voting' | 'areas'>('company');
   const [companyForm, setCompanyForm] = useState(config.company);
-  useEffect(() => {
-  setCompanyForm(config.company);
-}, [config.company]);
   const [newValue, setNewValue] = useState({ name: '', icon: 'Sparkles', image: '' });
   const [editingValue, setEditingValue] = useState<Value | null>(null);
   const [newCollab, setNewCollab] = useState({ name: '', email: '', area: '', isAdmin: false });
@@ -1545,12 +1542,6 @@ const AdminView = ({ config, onUpdateConfig, currentUser }: { config: AppConfig,
   const [deletingCollabId, setDeletingCollabId] = useState<number | null>(null);
   const [topNominators, setTopNominators] = useState<{ id: number, name: string, avatar: string, count: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const refreshConfig = async () => {
-  const res = await fetch('/api/config');
-  const data = await res.json();
-  onUpdateConfig(data);
-  return data;
-};
 
 useEffect(() => {
   if (activeTab === 'voting') {
@@ -1560,368 +1551,247 @@ useEffect(() => {
   }
 }, [activeTab]);
 
-const handleAddPeriod = async () => {
-  if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
+  const handleAddPeriod = async () => {
+    if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
+    await fetch('/api/periods', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPeriod)
+    });
+    setNewPeriod({ name: '', startDate: '', endDate: '' });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  const response = await fetch('/api/periods', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newPeriod)
-  });
+  const handleActivatePeriod = async (id: number) => {
+    await fetch(`/api/periods/${id}/activate`, { method: 'PATCH' });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  const result = await response.json();
+  const handleUpdatePeriod = async () => {
+    if (!editingPeriod) return;
+    await fetch(`/api/periods/${editingPeriod.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingPeriod)
+    });
+    setEditingPeriod(null);
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  if (!response.ok) {
-    alert(result.error || 'No se pudo crear el periodo');
-    return;
-  }
+  const handleDeletePeriod = async (id: number) => {
+    await fetch(`/api/periods/${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  onUpdateConfig({
-    periods: [
-      ...config.periods,
-      {
-        id: result.id,
-        ...newPeriod,
-        isActive: 0
+  const toggleShowResults = async () => {
+    const newShowResults = companyForm.showResults === 1 ? 0 : 1;
+    setCompanyForm({ ...companyForm, showResults: newShowResults });
+    await fetch('/api/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...companyForm, showResults: newShowResults })
+    });
+    onUpdateConfig({ company: { ...companyForm, showResults: newShowResults } });
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const data = evt.target?.result;
+      if (!data) return;
+      const wb = XLSX.read(data, { type: 'array' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
+
+      const members = jsonData.map(item => ({
+        name: item.Nombre || item.name || item.Name,
+        email: item.Email || item.email || item.Correo,
+        area: item.Area || item.area || item.Departamento || item.Department,
+        isAdmin: item.Admin === 'Si' || item.admin === true || item.Admin === 1
+      })).filter(m => m.name && m.email);
+
+      if (members.length > 0) {
+        await fetch('/api/collaborators/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ members })
+        });
+        const res = await fetch('/api/config');
+        const configData = await res.json();
+        onUpdateConfig(configData);
+        alert(`Se han importado ${members.length} miembros exitosamente.`);
       }
-    ]
-  });
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
-  setNewPeriod({ name: '', startDate: '', endDate: '' });
+  const handleSaveCompany = async () => {
+    await fetch('/api/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(companyForm)
+    });
+    onUpdateConfig({ company: companyForm });
+  };
 
-  await refreshConfig();
-};
+  const handleAddValue = async () => {
+    if (!newValue.name) return;
+    await fetch('/api/values', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newValue)
+    });
+    setNewValue({ name: '', icon: 'Sparkles', image: '' });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-const handleActivatePeriod = async (id: number) => {
-  await fetch('/api/periods', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'activate',
-      id
-    })
-  });
+  const handleUpdateValue = async () => {
+    if (!editingValue || !editingValue.name) return;
+    await fetch(`/api/values/${editingValue.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingValue)
+    });
+    setEditingValue(null);
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  onUpdateConfig({
-    periods: config.periods.map(p => ({
-      ...p,
-      isActive: p.id === id ? 1 : 0
-    }))
-  });
-
-  await refreshConfig();
-};
-
-
-const handleUpdatePeriod = async () => {
-  alert('Editar periodos aún no está soportado por el backend.');
-};
-
-const handleDeletePeriod = async (id: number) => {
-  await fetch('/api/periods', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
-
-  onUpdateConfig({
-    periods: config.periods.filter(p => p.id !== id)
-  });
-
-  await refreshConfig();
-};
-
-const toggleShowResults = async () => {
-  const newShowResults = companyForm.showResults === 1 ? 0 : 1;
-  const updatedCompany = { ...companyForm, showResults: newShowResults };
-
-  setCompanyForm(updatedCompany);
-  onUpdateConfig({ company: updatedCompany });
-
-  await fetch('/api/company', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updatedCompany)
-  });
-
-  await refreshConfig();
-};
-
-const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = async (evt) => {
-    const data = evt.target?.result;
-    if (!data) return;
-    const wb = XLSX.read(data, { type: 'array' });
-    const wsname = wb.SheetNames[0];
-    const ws = wb.Sheets[wsname];
-    const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
-
-    const members = jsonData.map(item => ({
-      name: item.Nombre || item.name || item.Name,
-      email: item.Email || item.email || item.Correo,
-      area: item.Area || item.area || item.Departamento || item.Department,
-      isAdmin: item.Admin === 'Si' || item.admin === true || item.Admin === 1
-    })).filter(m => m.name && m.email);
-
-    if (members.length > 0) {
-      await fetch('/api/collaborators', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'bulk',
-          members
-        })
-      });
-
-      await refreshConfig();
-      alert(`Se han importado ${members.length} miembros exitosamente.`);
+  const handleDeleteValue = async (id: number) => {
+    try {
+      const response = await fetch(`/api/values/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete value');
+      
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      onUpdateConfig(data);
+    } catch (error) {
+      console.error('Error deleting value:', error);
+      alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
     }
   };
-  reader.readAsArrayBuffer(file);
-};
 
-const handleSaveCompany = async () => {
-  const response = await fetch('/api/company', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(companyForm)
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    alert(result.error || 'No se pudo guardar la empresa');
-    return;
-  }
-
-  const updatedCompany = {
-    ...companyForm,
-    logo: result.savedLogo || companyForm.logo
+  const handleAddArea = async () => {
+    if (!newAreaName.trim()) return;
+    const response = await fetch('/api/areas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newAreaName.trim() })
+    });
+    if (response.ok) {
+      setNewAreaName('');
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      onUpdateConfig(data);
+    } else {
+      const err = await response.json();
+      alert(err.error);
+    }
   };
 
-  setCompanyForm(updatedCompany);
-  onUpdateConfig({ company: updatedCompany });
+  const handleDeleteArea = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar esta área?')) return;
+    await fetch(`/api/areas/${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  await refreshConfig();
-};
-
-const handleAddValue = async () => {
-  if (!newValue.name) return;
-
-  const response = await fetch('/api/values', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newValue)
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    alert(result.error || 'No se pudo crear el valor');
-    return;
-  }
-
-  onUpdateConfig({
-    values: [
-      ...config.values,
-      {
-        id: result.id,
-        ...newValue
-      }
-    ]
-  });
-
-  setNewValue({ name: '', icon: 'Sparkles', image: '' });
-
-  await refreshConfig();
-};
-
-const handleUpdateValue = async () => {
-  if (!editingValue || !editingValue.name) return;
-
-  await fetch('/api/values', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: editingValue.id,
-      ...editingValue
-    })
-  });
-
-  setEditingValue(null);
-  await refreshConfig();
-};
-
-const handleDeleteValue = async (id: number) => {
-  try {
-    const response = await fetch('/api/values', {
-      method: 'DELETE',
+  const handleUpdateArea = async () => {
+    if (!editingArea || !editingArea.name.trim()) return;
+    const response = await fetch(`/api/areas/${editingArea.id}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ name: editingArea.name.trim() })
     });
+    if (response.ok) {
+      setEditingArea(null);
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      onUpdateConfig(data);
+    } else {
+      const err = await response.json();
+      alert(err.error);
+    }
+  };
 
-    if (!response.ok) throw new Error('Failed to delete value');
-
-    onUpdateConfig({
-      values: config.values.filter(v => v.id !== id)
+  const handleUpdateCollab = async () => {
+    if (!editingCollab) return;
+    await fetch(`/api/collaborators/${editingCollab.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editingCollab.name,
+        email: editingCollab.email,
+        area: editingCollab.area,
+        isAdmin: editingCollab.isAdmin === 1
+      })
     });
+    setEditingCollab(null);
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-    await refreshConfig();
-  } catch (error) {
-    console.error('Error deleting value:', error);
-    alert('Error al eliminar el valor. Es posible que esté siendo utilizado.');
-  }
-};
+  const handleAddCollab = async () => {
+    if (!newCollab.name || !newCollab.email) return;
+    await fetch('/api/collaborators', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newCollab)
+    });
+    setNewCollab({ name: '', email: '', area: '', isAdmin: false });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-const handleAddArea = async () => {
-  if (!newAreaName.trim()) return;
+  const handleDeleteCollab = async () => {
+    if (deletingCollabId === null) return;
+    await fetch(`/api/collaborators/${deletingCollabId}`, { method: 'DELETE' });
+    setDeletingCollabId(null);
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  const response = await fetch('/api/areas', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newAreaName.trim() })
-  });
+  const toggleAdmin = async (id: number, current: number) => {
+    await fetch(`/api/collaborators/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isAdmin: current === 1 ? 0 : 1 })
+    });
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    onUpdateConfig(data);
+  };
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    alert(result.error || 'No se pudo crear el área');
-    return;
-  }
-
-  onUpdateConfig({
-    areas: [
-      ...config.areas,
-      {
-        id: result.id,
-        name: newAreaName.trim()
-      }
-    ]
-  });
-
-  setNewAreaName('');
-
-  await refreshConfig();
-};
-
-const handleDeleteArea = async (id: number) => {
-  if (!confirm('¿Estás seguro de eliminar esta área?')) return;
-
-  await fetch('/api/areas', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
-
-  onUpdateConfig({
-    areas: config.areas.filter(a => a.id !== id)
-  });
-
-  await refreshConfig();
-};
-
-
-const handleUpdateArea = async () => {
-  alert('Editar áreas aún no está soportado por el backend.');
-};
-  
-
-const handleUpdateCollab = async () => {
-  if (!editingCollab) return;
-
-  await fetch('/api/collaborators', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: editingCollab.id,
-      name: editingCollab.name,
-      email: editingCollab.email,
-      area: editingCollab.area,
-      isAdmin: editingCollab.isAdmin === 1
-    })
-  });
-
-  setEditingCollab(null);
-  await refreshConfig();
-};
-  
-
-const handleAddCollab = async () => {
-  if (!newCollab.name || !newCollab.email) return;
-
-  const response = await fetch('/api/collaborators', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newCollab)
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    alert(result.error || 'No se pudo crear el colaborador');
-    return;
-  }
-
-  setNewCollab({ name: '', email: '', area: '', isAdmin: false });
-
-  await refreshConfig();
-};
-
-
-const handleDeleteCollab = async () => {
-  if (deletingCollabId === null) return;
-
-  await fetch('/api/collaborators', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: deletingCollabId })
-  });
-
-  setDeletingCollabId(null);
-  await refreshConfig();
-};
-  
-
-const toggleAdmin = async (id: number, current: number) => {
-  await fetch('/api/collaborators', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id,
-      isAdmin: current === 1 ? 0 : 1
-    })
-  });
-
-  await refreshConfig();
-};
-
-
-const toggleVoting = async () => {
-  const newState = companyForm.votingOpen === 1 ? 0 : 1;
-  const updated = { ...companyForm, votingOpen: newState };
-
-  setCompanyForm(updated);
-  onUpdateConfig({ company: updated });
-
-  const response = await fetch('/api/company', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updated)
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    alert(result.error || 'No se pudo actualizar el estado de votaciones');
-    return;
-  }
-
-  await refreshConfig();
-};
+  const toggleVoting = async () => {
+    const newState = companyForm.votingOpen === 1 ? 0 : 1;
+    const updated = { ...companyForm, votingOpen: newState };
+    setCompanyForm(updated);
+    await fetch('/api/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    onUpdateConfig({ company: updated });
+  };
 
   return (
     <div className="p-12 max-w-6xl mx-auto overflow-y-auto custom-scrollbar h-full">
@@ -2969,20 +2839,26 @@ const handleNominate = async (toId: number, valueId: number, story: string, atta
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-white">Cargando...</div>;
   if (!user) return <LandingView config={config} onLogin={handleLogin} />;
 
-
-const toggleAdmin = async (id: number, current: number) => {
-  await fetch('/api/collaborators', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id,
-      isAdmin: current === 1 ? 0 : 1
-    })
-  });
-
-  await refreshConfig();
-};
-  
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const avatar = evt.target?.result as string;
+      await fetch(`/api/collaborators/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar })
+      });
+      setUser({ ...user, avatar });
+      // Refresh config to update avatar everywhere
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      setConfig(data);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
