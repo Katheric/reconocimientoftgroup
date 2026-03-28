@@ -1737,12 +1737,17 @@ const handleDeletePeriod = async (id: number) => {
   }
 };
 
-  const togglePeriodValue = (
-  currentCsv: string,
+const togglePeriodValue = (
+  currentCsv: any,
   valueId: number
 ) => {
-  const ids = currentCsv
-    ? currentCsv.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id))
+  const safeCsv = currentCsv === undefined || currentCsv === null ? '' : String(currentCsv);
+
+  const ids = safeCsv
+    ? safeCsv
+        .split(',')
+        .map((id: string) => Number(String(id).trim()))
+        .filter((id: number) => !isNaN(id))
     : [];
 
   const updated = ids.includes(valueId)
@@ -1753,11 +1758,16 @@ const handleDeletePeriod = async (id: number) => {
 };
 
 const togglePeriodCollaborator = (
-  currentCsv: string,
+  currentCsv: any,
   collaboratorId: number
 ) => {
-  const ids = currentCsv
-    ? currentCsv.split(',').map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id))
+  const safeCsv = currentCsv === undefined || currentCsv === null ? '' : String(currentCsv);
+
+  const ids = safeCsv
+    ? safeCsv
+        .split(',')
+        .map((id: string) => Number(String(id).trim()))
+        .filter((id: number) => !isNaN(id))
     : [];
 
   const updated = ids.includes(collaboratorId)
@@ -1767,13 +1777,19 @@ const togglePeriodCollaborator = (
   return updated.join(',');
 };
 
-const isSelectedInCsv = (csv: string, id: number) => {
-  const ids = csv
-    ? csv.split(',').map((item: string) => Number(item.trim())).filter((item: number) => !isNaN(item))
+const isSelectedInCsv = (csv: any, id: number) => {
+  const safeCsv = csv === undefined || csv === null ? '' : String(csv);
+
+  const ids = safeCsv
+    ? safeCsv
+        .split(',')
+        .map((item: string) => Number(String(item).trim()))
+        .filter((item: number) => !isNaN(item))
     : [];
 
   return ids.includes(id);
 };
+  
 
   const toggleShowResults = async () => {
     const newShowResults = companyForm.showResults === 1 ? 0 : 1;
@@ -2787,13 +2803,15 @@ setNewPeriod({
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      setEditingPeriod({
-                        ...p,
-                        allowedValueIds: p.allowedValueIds || '',
-                        allowedCollaboratorIds: p.allowedCollaboratorIds || ''
-                      })
-                    }
+onClick={() =>
+  setEditingPeriod({
+    ...p,
+    startDate: p.startDate ? String(p.startDate).slice(0, 10) : '',
+    endDate: p.endDate ? String(p.endDate).slice(0, 10) : '',
+    allowedValueIds: p.allowedValueIds === undefined || p.allowedValueIds === null ? '' : String(p.allowedValueIds),
+    allowedCollaboratorIds: p.allowedCollaboratorIds === undefined || p.allowedCollaboratorIds === null ? '' : String(p.allowedCollaboratorIds)
+  })
+}
                   >
                     <Edit2 size={16} />
                     Editar
